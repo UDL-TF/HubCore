@@ -1,6 +1,7 @@
 Cookie CookieDisableCreditKillRewardMessage;
 Cookie CookieDisableCreditReceivedMessage;
 Cookie CookieTrailHiding;
+Cookie CookieSpawnParticleHiding;
 
 enum struct CookieStruct
 {
@@ -15,11 +16,13 @@ void								CookieOnStart()
 {
 	CookieDisableCreditKillRewardMessage = new Cookie("credit_kill_reward", "Disable credit kill reward message", CookieAccess_Protected);
 	CookieDisableCreditReceivedMessage	 = new Cookie("credit_received", "Disables if a player wants to see how many coins they just recieved", CookieAccess_Protected);
-	CookieTrailHiding										 = FindClientCookie("trail_hiding");
+	CookieTrailHiding									 = new Cookie("trail_hiding", "Hide trails from other players", CookieAccess_Protected);
+	CookieSpawnParticleHiding					 = new Cookie("spawn_particle_hiding", "Hide spawn particles from other players", CookieAccess_Protected);
 
 	CreateCookieStruct(CookieDisableCreditKillRewardMessage, HUB_COOKIE_DISABLED_CREDIT_KILL_REWARD_MESSAGE, 0);
 	CreateCookieStruct(CookieDisableCreditReceivedMessage, HUB_COOKIE_DISABLED_CREDIT_RECEIVED_MESSAGE, 1);
 	CreateCookieStruct(CookieTrailHiding, HUB_COOKIE_TRAIL_HIDING, 2);
+	CreateCookieStruct(CookieSpawnParticleHiding, HUB_COOKIE_SPAWN_PARTICLE_HIDING, 3);
 
 	for (int client = 1; client <= MaxClients; client++)
 	{
@@ -46,6 +49,10 @@ public void OnClientCookiesCached(int client)
 		cookie.Get(client, value, 8);
 		AvailableCookies[i].playerValues[client] = StringToInt(value);
 	}
+	
+	// Update cosmetics hiding preferences
+	Trails_LoadHidingPreference(client);
+	SpawnParticles_LoadHidingPreference(client);
 }
 
 public void CreateCookieStruct(Cookie cookie, char name[128], int index)

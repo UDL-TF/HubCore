@@ -71,7 +71,7 @@ public Action Timer_Credits(Handle timer, int client)
 
 	if (amount <= 0) return Plugin_Continue;
 
-	AddPlayerCredits(client, amount);
+	Core_AddPlayerCredits(client, amount);
 
 	Cookie cookie			 = GetCookieByName(HUB_COOKIE_DISABLED_CREDIT_RECEIVED_MESSAGE);
 	int		 cookieValue = GetCookieValue(client, cookie);
@@ -98,7 +98,7 @@ public void DecideCoinflip(int client)
 
 	if (amount <= 0) return;
 
-	int currentAmount = GetPlayerCredits(client);
+	int currentAmount = Core_GetPlayerCredits(client);
 
 	if (amount > currentAmount)
 	{
@@ -109,16 +109,25 @@ public void DecideCoinflip(int client)
 	char name[MAX_NAME_LENGTH];
 	GetClientName(client, name, sizeof(name));
 	int random = GetRandomInt(0, 1);
+	float multiplier = Hub_Credits_Coinflip_Multiplier.FloatValue;
 
 	if (random == view_as<int>(creditPlayers[client].currentCoinflip))
 	{
-		float newAmount = amount * Hub_Credits_Coinflip_Multiplier.FloatValue;
-		AddPlayerCredits(client, RoundToCeil(newAmount));
-		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_WIN, RoundToCeil(newAmount), name);
+		int payout = RoundToCeil(amount * multiplier);
+		Core_AddPlayerCredits(client, payout);
+		
+		// Audit log the coinflip win
+		Audit_LogCoinflip(client, amount, true, payout, multiplier);
+		
+		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_WIN, payout, name);
 	}
 	else
 	{
-		RemovePlayerCredits(client, amount);
+		Core_RemovePlayerCredits(client, amount);
+		
+		// Audit log the coinflip loss
+		Audit_LogCoinflip(client, amount, false, amount, multiplier);
+		
 		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_LOSE, amount, name);
 	}
 
@@ -129,7 +138,7 @@ public void DecideCoinflip(int client)
 /* Commands */
 public Action CommandCredits(int client, int args)
 {
-	int	 credits = GetPlayerCredits(client);
+	int	 credits = Core_GetPlayerCredits(client);
 
 	char name[32];
 	GetClientName(client, name, sizeof(name));
@@ -148,7 +157,7 @@ public Action CommandCoinflip(int client, int args)
 		return Plugin_Handled;
 	}
 
-	int currentAmount = GetPlayerCredits(client);
+	int currentAmount = Core_GetPlayerCredits(client);
 	int amount				= GetCmdArgInt(1);
 
 	// Can't bet more than you have
@@ -177,7 +186,7 @@ public void CreditsOnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBr
 
 	if (Hub_Credits_Kill_For_Credits.BoolValue)
 	{
-		int amount = GetPlayerCredits(client);
+		int amount = Core_GetPlayerCredits(client);
 
 		if (amount <= 0) return;
 
@@ -191,13 +200,13 @@ public void CreditsOnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBr
 		// If player doesn't have enough credits, we take all of them
 		if (amount < points)
 		{
-			RemovePlayerCredits(client, points);
-			AddPlayerCredits(attacker, points);
+			Core_RemovePlayerCredits(client, points);
+			Core_AddPlayerCredits(attacker, points);
 		}
 		else
 		{
-			RemovePlayerCredits(client, points);
-			AddPlayerCredits(attacker, points);
+			Core_RemovePlayerCredits(client, points);
+			Core_AddPlayerCredits(attacker, points);
 		}
 
 		Cookie creditMessageCookie = GetCookieByName(HUB_COOKIE_DISABLED_CREDIT_KILL_REWARD_MESSAGE);

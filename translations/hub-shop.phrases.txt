@@ -1,5 +1,9 @@
 "Phrases"
 {
+  "Hub_Shop_Loading"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Shop is still loading, please try again in a moment."
+  }
   "Hub_You_Already_Own_This_Item"
   {
     "#format"  "{1:s}"
@@ -19,4 +23,9 @@
   {
     "#format"  "{1:s},{2:i}"
     "en"  "Are you sure you want to buy \"{2}\" for {1} credits."
-}}
+  }
+  "Hub_Shop_Purchase_Failed"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Purchase failed! Please try again later."
+  }
+}

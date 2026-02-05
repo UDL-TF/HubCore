@@ -166,7 +166,7 @@ forward CCC_OnConfigReloaded();
 
 public SharedPlugin:__pl_ccc = {
 	name = "ccc",
-	file = "custom-chatcolors.smx",
+	file = "hub.smx",
 #if defined REQUIRE_PLUGIN
 	required = 1
 #else

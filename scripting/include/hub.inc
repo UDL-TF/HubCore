@@ -1,4 +1,15 @@
 /**
+ * HubCore Main Include
+ * 
+ * Provides core natives for the Hub plugin system.
+ */
+
+#if defined _hub_included
+ #endinput
+#endif
+#define _hub_included
+
+/**
  * Gets player credits
  * 
  * @param client The client index
@@ -41,4 +52,4 @@ native int RemovePlayerCredits(int client, int credits);
  * @param name The item name
  * @return 1 if the client has the item, 0 if not
  */
-native int Hub_HasPlayerItemName(int client, char[] category, char[] name);
+native int Hub_HasPlayerItemName(int client, const char[] category, const char[] name);

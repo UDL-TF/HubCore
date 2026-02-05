@@ -29,3 +29,4 @@
 #define HUB_COOKIE_DISABLED_CREDIT_KILL_REWARD_MESSAGE "disabled_credit_kill_reward_message"
 #define HUB_COOKIE_DISABLED_CREDIT_RECEIVED_MESSAGE "disabled_credit_received_message"
 #define HUB_COOKIE_TRAIL_HIDING "trail_hiding"
+#define HUB_COOKIE_SPAWN_PARTICLE_HIDING "spawn_particle_hiding"
