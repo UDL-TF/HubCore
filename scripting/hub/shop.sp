@@ -8,6 +8,14 @@ enum struct PrepareBuying
 // Track if shop data (categories/items) has been loaded
 bool g_ShopDataLoaded = false;
 
+enum StateSellPlayerItem
+{
+	SELL_GENERIC_ERROR,
+	SELL_NOT_OWNED,
+	SELL_NOT_SELLABLE,
+	SELL_SUCCESS
+}
+
 void ShopOnStart()
 {
 	LoadTranslations("hub-shop.phrases.txt");
@@ -45,6 +53,7 @@ void ShopOnClientDisconnect(int client)
 	for (int i = 0; i < MAX_ITEMS; i++)
 	{
 		hubPlayersItems[client][i].itemId						 = 0;
+		hubPlayersItems[client][i].purchasePrice		 = 0;
 		hubPlayersItems[client][i].steamID					 = "";
 		hubPlayersItems[client][i].internal_OwnsItem = false;
 	}
@@ -95,7 +104,7 @@ void GetHubPlayerItems(int client)
 	char Query[512];
 	char escapedSteamID[64];
 	DB.Escape(steamID, escapedSteamID, sizeof(escapedSteamID));
-	Format(Query, sizeof(Query), "SELECT `item_id` FROM `%splayer_items_v2` WHERE `steamid` = '%s' AND `deleted_at` IS NULL;", databasePrefix, escapedSteamID);
+	Format(Query, sizeof(Query), "SELECT `item_id`, `purchase_price` FROM `%splayer_items_v2` WHERE `steamid` = '%s' AND `deleted_at` IS NULL ORDER BY `purchased_at` DESC;", databasePrefix, escapedSteamID);
 
 	DB.Query(GetHubPlayerItemCallback, Query, client);
 }
@@ -110,6 +119,7 @@ StateSetPlayerItem SetHubPlayerItem(int client, bool drawMoney = true)
 
 	int itemId		 = prepareBuying[client].itemId;
 	int categoryId = prepareBuying[client].categoryId;
+	int purchasePrice = 0;
 
 	if (drawMoney)
 	{
@@ -129,8 +139,9 @@ StateSetPlayerItem SetHubPlayerItem(int client, bool drawMoney = true)
 		}
 
 		// Check if player has enough credits.
-		int credits = Core_GetPlayerCredits(client);
-		int price = hubItems[categoryId][itemId].price;
+			int credits = Core_GetPlayerCredits(client);
+			int price = hubItems[categoryId][itemId].price;
+			purchasePrice = price;
 
 		if (credits < price)
 		{
@@ -164,22 +175,24 @@ StateSetPlayerItem SetHubPlayerItem(int client, bool drawMoney = true)
 		// Audit log the purchase
 		Audit_LogPurchase(client, itemId, hubItems[categoryId][itemId].name, price);
 	}
-	else
-	{
-		// No payment required, just add the item
+		else
+		{
+			// No payment required, just add the item
 		char steamID[32];
 		GetSteamId(client, steamID, sizeof(steamID));
 
 		char Query[512];
 		char escapedSteamID[64];
 		DB.Escape(steamID, escapedSteamID, sizeof(escapedSteamID));
-		Format(Query, sizeof(Query), "INSERT INTO `%splayer_items_v2` (`steamid`, `item_id`, `purchase_price`) VALUES ('%s', %d, 0) ON DUPLICATE KEY UPDATE `deleted_at` = NULL;", databasePrefix, escapedSteamID, itemId);
+			Format(Query, sizeof(Query), "INSERT INTO `%splayer_items_v2` (`steamid`, `item_id`, `purchase_price`) VALUES ('%s', %d, 0) ON DUPLICATE KEY UPDATE `deleted_at` = NULL;", databasePrefix, escapedSteamID, itemId);
 
-		DB.Query(ErrorCheckCallback, Query);
-	}
+			DB.Query(ErrorCheckCallback, Query);
+			purchasePrice = 0;
+		}
 
 	// Set the item in the local array.
 	hubPlayersItems[client][itemId].itemId						= itemId;
+	hubPlayersItems[client][itemId].purchasePrice			= purchasePrice;
 	char steamID[32];
 	GetSteamId(client, steamID, sizeof(steamID));
 	hubPlayersItems[client][itemId].steamID						= steamID;
@@ -191,6 +204,89 @@ StateSetPlayerItem SetHubPlayerItem(int client, bool drawMoney = true)
 	return PAID_FOR_ITEM;
 }
 
+StateSellPlayerItem SellHubPlayerItem(int client, int itemId, int &sellPrice)
+{
+	if (client < 1 || client > MaxClients)
+	{
+		LogError("SellHubPlayerItem: Invalid client %d.", client);
+		return SELL_GENERIC_ERROR;
+	}
+
+	if (itemId < 1 || itemId >= MAX_ITEMS)
+	{
+		LogError("SellHubPlayerItem: Invalid item ID %d.", itemId);
+		return SELL_GENERIC_ERROR;
+	}
+
+	if (!hubPlayersItems[client][itemId].internal_OwnsItem)
+	{
+		return SELL_NOT_OWNED;
+	}
+
+	int purchasePrice = hubPlayersItems[client][itemId].purchasePrice;
+	sellPrice = purchasePrice / 3;
+
+	if (sellPrice <= 0)
+	{
+		return SELL_NOT_SELLABLE;
+	}
+
+	char steamID[32];
+	GetSteamId(client, steamID, sizeof(steamID));
+
+	char escapedSteamID[64];
+	DB.Escape(steamID, escapedSteamID, sizeof(escapedSteamID));
+
+	Transaction txn = new Transaction();
+	char query[512];
+
+	Format(query, sizeof(query), "UPDATE `%splayer_items_v2` SET `deleted_at` = CURRENT_TIMESTAMP WHERE `steamid` = '%s' AND `item_id` = %d AND `deleted_at` IS NULL LIMIT 1;", databasePrefix, escapedSteamID, itemId);
+	txn.AddQuery(query);
+
+	Format(query, sizeof(query), "UPDATE `%splayers_v2` SET `credits` = `credits` + %d WHERE `steamid` = '%s';", databasePrefix, sellPrice, escapedSteamID);
+	txn.AddQuery(query);
+
+	DB.Execute(txn, OnSellSuccess, OnSellFailed, GetClientUserId(client));
+
+	int oldCredits = Core_GetPlayerCredits(client);
+	int newCredits = oldCredits + sellPrice;
+	Cache_SetCredits(client, newCredits);
+	hubPlayers[client].credits = newCredits;
+
+	char itemName[64];
+	char escapedItemName[128];
+	strcopy(itemName, sizeof(itemName), "");
+	strcopy(escapedItemName, sizeof(escapedItemName), "");
+
+	for (int i = 0; i < MAX_CATEGORIES; i++)
+	{
+		if (hubCategories[i].id <= 0)
+		{
+			continue;
+		}
+
+		if (hubItems[hubCategories[i].id][itemId].id == itemId)
+		{
+			strcopy(itemName, sizeof(itemName), hubItems[hubCategories[i].id][itemId].name);
+			break;
+		}
+	}
+
+	strcopy(escapedItemName, sizeof(escapedItemName), itemName);
+	ReplaceString(escapedItemName, sizeof(escapedItemName), "\"", "\\\"");
+
+	char eventData[256];
+	Format(eventData, sizeof(eventData), "{\"item_id\":%d,\"item_name\":\"%s\",\"sell_price\":%d}", itemId, escapedItemName, sellPrice);
+	Audit_Log(client, AUDIT_ITEM_REMOVED, eventData, AUDIT_SOURCE_SHOP);
+	Audit_LogCreditChange(client, oldCredits, newCredits, "sell_item", AUDIT_SOURCE_SHOP);
+
+	hubPlayersItems[client][itemId].internal_OwnsItem = false;
+	hubPlayersItems[client][itemId].purchasePrice = 0;
+	hubPlayersItems[client][itemId].steamID = "";
+
+	return SELL_SUCCESS;
+}
+
 /**
  * Callback when purchase transaction succeeds.
  */
@@ -200,6 +296,32 @@ public void OnPurchaseSuccess(Database db, any data, int numQueries, DBResultSet
 	if (client > 0)
 	{
 		LogToFile(logFile, "[Shop] Purchase successful for %s", PlayerCache[client].steamID);
+	}
+}
+
+/**
+ * Callback when sell transaction succeeds.
+ */
+public void OnSellSuccess(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+{
+	int client = GetClientOfUserId(data);
+	if (client > 0)
+	{
+		LogToFile(logFile, "[Shop] Sell successful for %s", PlayerCache[client].steamID);
+	}
+}
+
+/**
+ * Callback when sell transaction fails.
+ */
+public void OnSellFailed(Database db, any data, int numQueries, const char[] error, int failIndex, any[] queryData)
+{
+	int client = GetClientOfUserId(data);
+	LogToFile(logFile, "[Shop] Sell FAILED for client %d: %s", client, error);
+	
+	if (client > 0)
+	{
+		CPrintToChat(client, "%t", "Hub_Inventory_Item_Sell_Failed");
 	}
 }
 
@@ -372,8 +494,17 @@ public void GetHubPlayerItemCallback(Database db, DBResultSet results, const cha
 
 	while (results.FetchRow())
 	{
-		int itemId																				= results.FetchInt(0);
+		int itemId = results.FetchInt(0);
+		int purchasePrice = results.FetchInt(1);
+		
+		// Keep the most recent owned entry for duplicate rows.
+		if (hubPlayersItems[client][itemId].internal_OwnsItem)
+		{
+			continue;
+		}
+		
 		hubPlayersItems[client][itemId].itemId						= itemId;
+		hubPlayersItems[client][itemId].purchasePrice			= purchasePrice;
 		hubPlayersItems[client][itemId].steamID						= steamID;
 		hubPlayersItems[client][itemId].internal_OwnsItem = true;
 		itemCount++;

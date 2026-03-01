@@ -275,6 +275,25 @@
     "#format"  "{1:s}"
     "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] You have unequipped {#27939D}{1}{#ffffff}."
   }
+  "Hub_Inventory_Item_Sold"
+  {
+    "#format"  "{1:s},{2:i}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] You sold {#27939D}{1}{#ffffff} for {2} credits."
+  }
+  "Hub_Inventory_Item_Not_Sellable"
+  {
+    "#format"  "{1:s}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] {#27939D}{1}{#ffffff} cannot be sold."
+  }
+  "Hub_Inventory_Item_Not_Owned"
+  {
+    "#format"  "{1:s}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] You do not own {#27939D}{1}{#ffffff}."
+  }
+  "Hub_Inventory_Item_Sell_Failed"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Failed to sell item. Please try again."
+  }
 
   // Shop
   "Hub_Shop_Purchase_Failed"

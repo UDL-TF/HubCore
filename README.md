@@ -69,11 +69,11 @@ Once the plugin has been loaded, you can modify the cvars in `cfg/sourcemod/hub.
 
 | CVar | Default | Description |
 |------|---------|-------------|
-| `hub_credits_minute` | 5 | Minutes between automatic credit rewards |
-| `hub_credits_amount` | 25 | Credits given per interval |
-| `hub_credits_coinflip_multiplier` | 1.2 | Multiplier for coinflip wins |
-| `hub_credits_kill_for_credits` | 0 | Enable credits on kill |
-| `hub_credits_kill_for_credits_points` | 5 | Credits per kill |
+| `hub_credits_minute` | 4 | Minutes between automatic credit rewards |
+| `hub_credits_amount` | 20 | Credits given per interval |
+| `hub_credits_coinflip_multiplier` | 1.1 | Multiplier for coinflip wins |
+| `hub_credits_kill_for_credits` | 1 | Enable credits on kill |
+| `hub_credits_kill_for_credits_points` | 2 | Credits transferred per kill |
 | `sm_hub_trails_enabled` | 1 | Enable trails system |
 | `sm_hub_trails_force_cheap` | 0 | Force low-quality trails |
 | `sm_hub_trails_remove_on_respawn` | 0 | Remove trail on respawn |

@@ -802,17 +802,31 @@ void ShowInventoryItemOptionsMenu(int client, int categoryId, int itemId)
 		isEquipped = (strcmp(itemName, currentSelection) == 0);
 	}
 	
-	// Build info string with all needed data
-	char info[64];
-	Format(info, sizeof(info), "%d:%d:%s", categoryId, itemId, selectionType);
-	
+	// Build info strings with action + item context
+	char info[80];
+
 	if (isEquipped)
 	{
+		Format(info, sizeof(info), "unequip:%d:%d:%s", categoryId, itemId, selectionType);
 		menu.AddItem(info, "Unequip", ITEMDRAW_DEFAULT);
 	}
 	else
 	{
+		Format(info, sizeof(info), "equip:%d:%d:%s", categoryId, itemId, selectionType);
 		menu.AddItem(info, "Equip", ITEMDRAW_DEFAULT);
+	}
+
+	int sellPrice = hubPlayersItems[client][itemId].purchasePrice / 3;
+	Format(info, sizeof(info), "sell:%d:%d:%s", categoryId, itemId, selectionType);
+	if (sellPrice > 0)
+	{
+		char sellDisplay[64];
+		Format(sellDisplay, sizeof(sellDisplay), "Sell (+%d credits)", sellPrice);
+		menu.AddItem(info, sellDisplay, ITEMDRAW_DEFAULT);
+	}
+	else
+	{
+		menu.AddItem(info, "Sell (Not sellable)", ITEMDRAW_DISABLED);
 	}
 	
 	menu.Display(client, MENU_TIME_FOREVER);
@@ -828,32 +842,81 @@ public int MenuHandlerInventoryItemOptions(Menu menu, MenuAction menuActions, in
 		case MenuAction_Select:
 		{
 			char strOption[64];
-			char displayOption[32];
-			menu.GetItem(param2, strOption, sizeof(strOption), _, displayOption, sizeof(displayOption));
+			menu.GetItem(param2, strOption, sizeof(strOption));
 			
-			// Parse categoryId:itemId:selectionType format
-			char parts[3][32];
-			ExplodeString(strOption, ":", parts, sizeof(parts), sizeof(parts[]));
-			
-			int categoryId = StringToInt(parts[0]);
-			int itemId = StringToInt(parts[1]);
+			// Parse action:categoryId:itemId:selectionType format
+			char parts[4][32];
+			int partCount = ExplodeString(strOption, ":", parts, sizeof(parts), sizeof(parts[]));
+
+			if (partCount < 3)
+			{
+				return 1;
+			}
+
+			char action[16];
+			strcopy(action, sizeof(action), parts[0]);
+
+			int categoryId = StringToInt(parts[1]);
+			int itemId = StringToInt(parts[2]);
 			char selectionType[32];
-			strcopy(selectionType, sizeof(selectionType), parts[2]);
+			selectionType[0] = '\0';
+			if (partCount >= 4)
+			{
+				strcopy(selectionType, sizeof(selectionType), parts[3]);
+			}
 			
 			char itemName[64];
 			strcopy(itemName, sizeof(itemName), hubItems[categoryId][itemId].name);
 			
-			if (StrEqual(displayOption, "Equip"))
+			if (StrEqual(action, "equip"))
 			{
 				// Equip the item
 				EquipInventoryItem(param1, selectionType, itemName, categoryId, itemId);
 				CPrintToChat(param1, "%t", "Hub_Inventory_Item_Equipped", itemName);
 			}
-			else
+			else if (StrEqual(action, "unequip"))
 			{
 				// Unequip the item
 				UnequipInventoryItem(param1, selectionType);
 				CPrintToChat(param1, "%t", "Hub_Inventory_Item_Unequipped", itemName);
+			}
+			else if (StrEqual(action, "sell"))
+			{
+				bool isEquipped = false;
+				if (selectionType[0] != '\0')
+				{
+					char currentSelection[64];
+					Selections_GetPlayerString(param1, selectionType, "name", currentSelection, sizeof(currentSelection), "");
+					isEquipped = (strcmp(itemName, currentSelection) == 0);
+				}
+
+				if (isEquipped)
+				{
+					UnequipInventoryItem(param1, selectionType);
+				}
+
+				int sellPrice = 0;
+				StateSellPlayerItem sellState = SellHubPlayerItem(param1, itemId, sellPrice);
+
+				switch (sellState)
+				{
+					case SELL_NOT_OWNED:
+					{
+						CPrintToChat(param1, "%t", "Hub_Inventory_Item_Not_Owned", itemName);
+					}
+					case SELL_NOT_SELLABLE:
+					{
+						CPrintToChat(param1, "%t", "Hub_Inventory_Item_Not_Sellable", itemName);
+					}
+					case SELL_SUCCESS:
+					{
+						CPrintToChat(param1, "%t", "Hub_Inventory_Item_Sold", itemName, sellPrice);
+					}
+					default:
+					{
+						CPrintToChat(param1, "%t", "Hub_Inventory_Item_Sell_Failed");
+					}
+				}
 			}
 			
 			// Return to the inventory items menu

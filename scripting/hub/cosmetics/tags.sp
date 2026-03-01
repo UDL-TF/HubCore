@@ -112,13 +112,13 @@ bool Tags_LoadConfig()
 int Tags_ParseHexColor(const char[] hexColor)
 {
     char color[16];
-    strcopy(color, sizeof(color), hexColor);
-    
-    // Remove # prefix if present
-    if (color[0] == '#')
+    int start = (hexColor[0] == '#') ? 1 : 0;
+    int j = 0;
+    for (int i = start; hexColor[i] != '\0' && j < sizeof(color) - 1; i++)
     {
-        strcopy(color, sizeof(color), color[1]);
+        color[j++] = hexColor[i];
     }
+    color[j] = '\0';
     
     return StringToInt(color, 16);
 }

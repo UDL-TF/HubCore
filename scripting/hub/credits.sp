@@ -19,11 +19,11 @@ void					CreditsOnStart()
 	RegConsoleCmd("sm_coinflip", CommandCoinflip, "Coinflip.");
 
 	// Create ConVars
-	Hub_Credits_Minute									= CreateConVar("hub_credits_minute", "5", "How minutes when to give credits.");
-	Hub_Credits_Amount									= CreateConVar("hub_credits_amount", "25", "How many credits to give per minute.");
-	Hub_Credits_Coinflip_Multiplier			= CreateConVar("hub_credits_coinflip_multiplier", "1.2", "How much to multiply the coinflip amount by.");
-	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "0", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
-	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "5", "How much points to give/extract when death.");
+	Hub_Credits_Minute									= CreateConVar("hub_credits_minute", "4", "How minutes when to give credits.");
+	Hub_Credits_Amount									= CreateConVar("hub_credits_amount", "20", "How many credits to give per minute.");
+	Hub_Credits_Coinflip_Multiplier			= CreateConVar("hub_credits_coinflip_multiplier", "1.1", "How much to multiply the coinflip amount by.");
+	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "1", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
+	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "2", "How much points to give/extract when death.");
 
 	HookConVarChange(Hub_Credits_Minute, CreditsMinuteChange);
 	HookEvent("player_death", CreditsOnPlayerDeath);
@@ -186,38 +186,29 @@ public void CreditsOnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBr
 
 	if (Hub_Credits_Kill_For_Credits.BoolValue)
 	{
-		int amount = Core_GetPlayerCredits(client);
+		int victimCredits = Core_GetPlayerCredits(client);
+		int points = Hub_Credits_Kill_For_Credits_Points.IntValue;
+		int transferAmount = victimCredits < points ? victimCredits : points;
 
-		if (amount <= 0) return;
-
-		int	 points = Hub_Credits_Kill_For_Credits_Points.IntValue;
+		if (transferAmount <= 0) return;
 
 		char attackerName[MAX_NAME_LENGTH];
 		GetClientName(attacker, attackerName, sizeof(attackerName));
 		char clientName[MAX_NAME_LENGTH];
 		GetClientName(client, clientName, sizeof(clientName));
 
-		// If player doesn't have enough credits, we take all of them
-		if (amount < points)
-		{
-			Core_RemovePlayerCredits(client, points);
-			Core_AddPlayerCredits(attacker, points);
-		}
-		else
-		{
-			Core_RemovePlayerCredits(client, points);
-			Core_AddPlayerCredits(attacker, points);
-		}
+		Core_RemovePlayerCredits(client, transferAmount);
+		Core_AddPlayerCredits(attacker, transferAmount);
 
 		Cookie creditMessageCookie = GetCookieByName(HUB_COOKIE_DISABLED_CREDIT_KILL_REWARD_MESSAGE);
 		int		 attackerValue			 = GetCookieValue(attacker, creditMessageCookie);
 		int		 clientValue				 = GetCookieValue(client, creditMessageCookie);
 
-		if (attackerValue != 1)
-			CPrintToChat(client, "%t", HUB_CREDITS_EARNED_POINTS_DIED, points, attackerName);
-
 		if (clientValue != 1)
-			CPrintToChat(attacker, "%t", HUB_PHRASE_EARNED_POINTS_KILLED, points, clientName);
+			CPrintToChat(client, "%t", HUB_CREDITS_EARNED_POINTS_DIED, transferAmount, attackerName);
+
+		if (attackerValue != 1)
+			CPrintToChat(attacker, "%t", HUB_PHRASE_EARNED_POINTS_KILLED, transferAmount, clientName);
 	}
 }
 

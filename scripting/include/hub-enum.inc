@@ -18,6 +18,7 @@ enum struct HubPlayersItems
 {
 	char steamID[32];
 	int itemId;
+	int purchasePrice;
 	bool internal_OwnsItem;
 }
 

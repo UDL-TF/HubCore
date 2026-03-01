@@ -253,11 +253,13 @@ stock HubChatColorType HubChat_ParseColorString(const char[] colorStr, int &colo
     
     // Parse hex color
     char hex[16];
-    strcopy(hex, sizeof(hex), colorStr);
-    
-    // Remove # prefix if present
-    if (hex[0] == '#')
-        strcopy(hex, sizeof(hex), hex[1]);
+    int start = (colorStr[0] == '#') ? 1 : 0;
+    int j = 0;
+    for (int i = start; colorStr[i] != '\0' && j < sizeof(hex) - 1; i++)
+    {
+        hex[j++] = colorStr[i];
+    }
+    hex[j] = '\0';
     
     int len = strlen(hex);
     if (len == 6)
