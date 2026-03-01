@@ -2,7 +2,6 @@
 #define MENU_PREFERENCES "preferences"
 #define MENU_INVENTORY	 "inventory"
 #define MENU_GAMBLING		 "gambling"
-#define MENU_COSMETICS	 "cosmetics"
 
 // Menu history system
 #define MAX_MENU_HISTORY 10
@@ -157,9 +156,8 @@ void ShowHubMenu(int client)
 	menu.SetTitle("%t", "Hub_Menu_Title");
 
 	menu.AddItem(MENU_SHOP, "Hub_Menu_Shop");
-	menu.AddItem(MENU_COSMETICS, "Hub_Menu_Cosmetics");
-	menu.AddItem(MENU_PREFERENCES, "Hub_Menu_Preferences");
 	menu.AddItem(MENU_INVENTORY, "Hub_Menu_Inventory");
+	menu.AddItem(MENU_PREFERENCES, "Hub_Menu_Preferences");
 
 	menu.Display(client, MENU_TIME_FOREVER);
 }
@@ -334,19 +332,14 @@ public int MenuHandlerHub(Menu menu, MenuAction action, int param1, int param2)
 			{
 				ShowGamblingMenu(param1);
 			}
-			
-			if (StrEqual(info, MENU_COSMETICS))
-			{
-				ShowCosmeticsMenu(param1);
-			}
 		}
 		case MenuAction_Cancel:
 		{
-			// Clear history when menu is closed (not using back button)
-			if (param2 == MenuCancel_Exit || param2 == MenuCancel_Timeout || param2 == MenuCancel_Interrupted)
-			{
-				MenuHistory_Clear(param1);
-			}
+				// Clear history when menu is closed (not using back button)
+				if (param2 == MenuCancel_Exit || param2 == MenuCancel_Timeout || param2 == MenuCancel_Interrupted)
+				{
+					MenuHistory_Clear(param1);
+				}
 		}
 		case MenuAction_End:
 		{
@@ -658,13 +651,7 @@ public void CreateInventoryItemsMenu(int client, int categoryId)
 	// Determine the cosmetic type from category name
 	char selectionType[32];
 	GetSelectionTypeFromCategory(categoryName, selectionType, sizeof(selectionType));
-
-	// Get current selection for this type
-	char currentSelection[64] = "";
-	if (selectionType[0] != '\0')
-	{
-		Selections_GetPlayerString(client, selectionType, "name", currentSelection, sizeof(currentSelection), "");
-	}
+	bool isColorCategory = (StrContains(categoryName, "Chat Color", false) != -1 || StrContains(categoryName, "Name Color", false) != -1);
 
 	int itemCount = 0;
 	for (int i = 0; i < MAX_ITEMS; i++)
@@ -680,17 +667,44 @@ public void CreateInventoryItemsMenu(int client, int categoryId)
 		if (!ownsItem)
 			continue;
 
-		// Check if this item is currently equipped
-		bool isEquipped = (currentSelection[0] != '\0' && strcmp(hubItems[categoryId][i].name, currentSelection) == 0);
+			// Check if this item is currently equipped
+			bool isEquipped = Inventory_IsSelectionEquipped(client, selectionType, hubItems[categoryId][i].name);
+			bool isChatEquipped = false;
+			bool isNameEquipped = false;
+			if (isColorCategory)
+			{
+				isChatEquipped = Inventory_IsSelectionEquipped(client, SELECTION_CHAT_COLOR, hubItems[categoryId][i].name);
+				isNameEquipped = Inventory_IsSelectionEquipped(client, SELECTION_NAME_COLOR, hubItems[categoryId][i].name);
+				isEquipped = isChatEquipped || isNameEquipped;
+			}
 
 		char info[16];
 		Format(info, sizeof(info), "%d:%d", categoryId, itemId);
 
 		char betterName[128];
-		if (isEquipped)
-		{
-			Format(betterName, sizeof(betterName), "[E] %s [%t]", hubItems[categoryId][i].name, "Hub_Cosmetics_Equipped");
-		}
+			if (isColorCategory)
+			{
+				if (isChatEquipped && isNameEquipped)
+				{
+					Format(betterName, sizeof(betterName), "[C/N] %s", hubItems[categoryId][i].name);
+				}
+				else if (isChatEquipped)
+				{
+					Format(betterName, sizeof(betterName), "[C] %s", hubItems[categoryId][i].name);
+				}
+				else if (isNameEquipped)
+				{
+					Format(betterName, sizeof(betterName), "[N] %s", hubItems[categoryId][i].name);
+				}
+				else
+				{
+					Format(betterName, sizeof(betterName), "  %s", hubItems[categoryId][i].name);
+				}
+			}
+			else if (isEquipped)
+			{
+				Format(betterName, sizeof(betterName), "[E] %s [%t]", hubItems[categoryId][i].name, "Hub_Cosmetics_Equipped");
+			}
 		else
 		{
 			Format(betterName, sizeof(betterName), "  %s", hubItems[categoryId][i].name);
@@ -744,6 +758,42 @@ public int MenuHandlerInventoryItem(Menu menu, MenuAction menuActions, int param
 	return 1;
 }
 
+bool Inventory_GetColorValueByName(const char[] itemName, char[] colorValue, int maxlen)
+{
+	int cost = 0;
+	return Chat_GetColorByName(itemName, colorValue, maxlen, cost) >= 0;
+}
+
+bool Inventory_IsSelectionEquipped(int client, const char[] selectionType, const char[] itemName)
+{
+	if (selectionType[0] == '\0')
+	{
+		return false;
+	}
+
+	if (StrEqual(selectionType, SELECTION_CHAT_COLOR) || StrEqual(selectionType, SELECTION_NAME_COLOR) || StrEqual(selectionType, SELECTION_TAG_COLOR))
+	{
+		char selectedValue[16];
+		Selections_GetPlayerString(client, selectionType, "value", selectedValue, sizeof(selectedValue), "");
+		if (selectedValue[0] == '\0')
+		{
+			return false;
+		}
+
+		char itemColorValue[16];
+		if (!Inventory_GetColorValueByName(itemName, itemColorValue, sizeof(itemColorValue)))
+		{
+			return false;
+		}
+
+		return StrEqual(selectedValue, itemColorValue, false);
+	}
+
+	char currentSelection[64];
+	Selections_GetPlayerString(client, selectionType, "name", currentSelection, sizeof(currentSelection), "");
+	return (currentSelection[0] != '\0' && strcmp(itemName, currentSelection) == 0);
+}
+
 /**
  * Get the selection type from a category name.
  * 
@@ -754,7 +804,19 @@ public int MenuHandlerInventoryItem(Menu menu, MenuAction menuActions, int param
 void GetSelectionTypeFromCategory(const char[] categoryName, char[] buffer, int maxlen)
 {
 	// Map category names to selection types
-	if (StrContains(categoryName, "Tag", false) != -1)
+	if (StrContains(categoryName, "Tag Color", false) != -1)
+	{
+		strcopy(buffer, maxlen, SELECTION_TAG_COLOR);
+	}
+	else if (StrContains(categoryName, "Name Color", false) != -1)
+	{
+		strcopy(buffer, maxlen, SELECTION_NAME_COLOR);
+	}
+	else if (StrContains(categoryName, "Chat Color", false) != -1)
+	{
+		strcopy(buffer, maxlen, SELECTION_CHAT_COLOR);
+	}
+	else if (StrContains(categoryName, "Tag", false) != -1)
 	{
 		strcopy(buffer, maxlen, SELECTION_TAG);
 	}
@@ -799,28 +861,52 @@ void ShowInventoryItemOptionsMenu(int client, int categoryId, int itemId)
 	
 	char selectionType[32];
 	GetSelectionTypeFromCategory(categoryName, selectionType, sizeof(selectionType));
+	bool isColorCategory = (StrContains(categoryName, "Chat Color", false) != -1 || StrContains(categoryName, "Name Color", false) != -1);
 	
 	// Check if this item is currently equipped
-	bool isEquipped = false;
-	if (selectionType[0] != '\0')
-	{
-		char currentSelection[64];
-		Selections_GetPlayerString(client, selectionType, "name", currentSelection, sizeof(currentSelection), "");
-		isEquipped = (strcmp(itemName, currentSelection) == 0);
-	}
+	bool isEquipped = Inventory_IsSelectionEquipped(client, selectionType, itemName);
+	bool isChatEquipped = Inventory_IsSelectionEquipped(client, SELECTION_CHAT_COLOR, itemName);
+	bool isNameEquipped = Inventory_IsSelectionEquipped(client, SELECTION_NAME_COLOR, itemName);
 	
 	// Build info strings with action + item context
 	char info[80];
 
-	if (isEquipped)
+	if (isColorCategory)
 	{
-		Format(info, sizeof(info), "unequip:%d:%d:%s", categoryId, itemId, selectionType);
-		menu.AddItem(info, "Unequip", ITEMDRAW_DEFAULT);
+		if (isChatEquipped)
+		{
+			Format(info, sizeof(info), "unequip_chat:%d:%d:%s", categoryId, itemId, SELECTION_CHAT_COLOR);
+			menu.AddItem(info, "Unequip Chat Color", ITEMDRAW_DEFAULT);
+		}
+		else
+		{
+			Format(info, sizeof(info), "equip_chat:%d:%d:%s", categoryId, itemId, SELECTION_CHAT_COLOR);
+			menu.AddItem(info, "Equip as Chat Color", ITEMDRAW_DEFAULT);
+		}
+
+		if (isNameEquipped)
+		{
+			Format(info, sizeof(info), "unequip_name:%d:%d:%s", categoryId, itemId, SELECTION_NAME_COLOR);
+			menu.AddItem(info, "Unequip Name Color", ITEMDRAW_DEFAULT);
+		}
+		else
+		{
+			Format(info, sizeof(info), "equip_name:%d:%d:%s", categoryId, itemId, SELECTION_NAME_COLOR);
+			menu.AddItem(info, "Equip as Name Color", ITEMDRAW_DEFAULT);
+		}
 	}
 	else
 	{
-		Format(info, sizeof(info), "equip:%d:%d:%s", categoryId, itemId, selectionType);
-		menu.AddItem(info, "Equip", ITEMDRAW_DEFAULT);
+		if (isEquipped)
+		{
+			Format(info, sizeof(info), "unequip:%d:%d:%s", categoryId, itemId, selectionType);
+			menu.AddItem(info, "Unequip", ITEMDRAW_DEFAULT);
+		}
+		else
+		{
+			Format(info, sizeof(info), "equip:%d:%d:%s", categoryId, itemId, selectionType);
+			menu.AddItem(info, "Equip", ITEMDRAW_DEFAULT);
+		}
 	}
 
 	int sellPrice = hubPlayersItems[client][itemId].purchasePrice / 3;
@@ -872,35 +958,72 @@ public int MenuHandlerInventoryItemOptions(Menu menu, MenuAction menuActions, in
 				strcopy(selectionType, sizeof(selectionType), parts[3]);
 			}
 			
-			char itemName[64];
-			strcopy(itemName, sizeof(itemName), hubItems[categoryId][itemId].name);
-			
-			if (StrEqual(action, "equip"))
-			{
-				// Equip the item
-				EquipInventoryItem(param1, selectionType, itemName, categoryId, itemId);
-				CPrintToChat(param1, "%t", "Hub_Inventory_Item_Equipped", itemName);
-			}
-			else if (StrEqual(action, "unequip"))
-			{
-				// Unequip the item
-				UnequipInventoryItem(param1, selectionType);
-				CPrintToChat(param1, "%t", "Hub_Inventory_Item_Unequipped", itemName);
-			}
-			else if (StrEqual(action, "sell"))
-			{
-				bool isEquipped = false;
-				if (selectionType[0] != '\0')
-				{
-					char currentSelection[64];
-					Selections_GetPlayerString(param1, selectionType, "name", currentSelection, sizeof(currentSelection), "");
-					isEquipped = (strcmp(itemName, currentSelection) == 0);
-				}
+				char itemName[64];
+				strcopy(itemName, sizeof(itemName), hubItems[categoryId][itemId].name);
+				char categoryName[64];
+				strcopy(categoryName, sizeof(categoryName), hubCategories[categoryId].name);
+				bool isColorCategory = (StrContains(categoryName, "Chat Color", false) != -1 || StrContains(categoryName, "Name Color", false) != -1);
 
-				if (isEquipped)
+				if (StrEqual(action, "equip"))
 				{
-					UnequipInventoryItem(param1, selectionType);
+					// Equip the item
+					EquipInventoryItem(param1, selectionType, itemName, categoryId, itemId);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Equipped", itemName);
 				}
+				else if (StrEqual(action, "equip_chat"))
+				{
+					EquipInventoryItem(param1, SELECTION_CHAT_COLOR, itemName, categoryId, itemId);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Equipped", itemName);
+				}
+				else if (StrEqual(action, "equip_name"))
+				{
+					EquipInventoryItem(param1, SELECTION_NAME_COLOR, itemName, categoryId, itemId);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Equipped", itemName);
+				}
+				else if (StrEqual(action, "unequip"))
+				{
+					// Unequip the item
+					UnequipInventoryItem(param1, selectionType);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Unequipped", itemName);
+				}
+				else if (StrEqual(action, "unequip_chat"))
+				{
+					UnequipInventoryItem(param1, SELECTION_CHAT_COLOR);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Unequipped", itemName);
+				}
+				else if (StrEqual(action, "unequip_name"))
+				{
+					UnequipInventoryItem(param1, SELECTION_NAME_COLOR);
+					CPrintToChat(param1, "%t", "Hub_Inventory_Item_Unequipped", itemName);
+				}
+				else if (StrEqual(action, "sell"))
+				{
+					bool isEquipped = false;
+					if (isColorCategory)
+					{
+						if (Inventory_IsSelectionEquipped(param1, SELECTION_CHAT_COLOR, itemName))
+						{
+							UnequipInventoryItem(param1, SELECTION_CHAT_COLOR);
+							isEquipped = true;
+						}
+						if (Inventory_IsSelectionEquipped(param1, SELECTION_NAME_COLOR, itemName))
+						{
+							UnequipInventoryItem(param1, SELECTION_NAME_COLOR);
+							isEquipped = true;
+						}
+					}
+					else if (selectionType[0] != '\0')
+					{
+						isEquipped = Inventory_IsSelectionEquipped(param1, selectionType, itemName);
+					}
+
+					if (isEquipped)
+					{
+						if (!isColorCategory)
+						{
+							UnequipInventoryItem(param1, selectionType);
+						}
+					}
 
 				int sellPrice = 0;
 				StateSellPlayerItem sellState = SellHubPlayerItem(param1, itemId, sellPrice);
@@ -972,7 +1095,21 @@ void EquipInventoryItem(int client, const char[] selectionType, const char[] ite
 	data.SetInt("id", itemId);
 	data.SetString("name", itemName);
 	data.SetInt("category_id", categoryId);
-	data.SetString("value", itemName);
+
+	char selectionValue[64];
+	strcopy(selectionValue, sizeof(selectionValue), itemName);
+
+	// Color selections must store a parseable color value (hex/team/etc), not display name.
+	if (StrEqual(selectionType, SELECTION_CHAT_COLOR) || StrEqual(selectionType, SELECTION_NAME_COLOR) || StrEqual(selectionType, SELECTION_TAG_COLOR))
+	{
+		char colorValue[16];
+		if (Inventory_GetColorValueByName(itemName, colorValue, sizeof(colorValue)))
+		{
+			strcopy(selectionValue, sizeof(selectionValue), colorValue);
+		}
+	}
+
+	data.SetString("value", selectionValue);
 	
 	// Set the selection through the proper system
 	Selections_SetPlayer(client, selectionType, data);
@@ -1030,6 +1167,35 @@ void ApplyCosmeticFromInventory(int client, const char[] selectionType, const ch
 		// Apply spawn particle - sets the selection so it shows on next spawn
 		SpawnParticles_ApplyByName(client, itemName);
 	}
+	else if (StrEqual(selectionType, SELECTION_CHAT_COLOR) || StrEqual(selectionType, SELECTION_NAME_COLOR) || StrEqual(selectionType, SELECTION_TAG_COLOR))
+	{
+		char colorValue[16];
+		Selections_GetPlayerString(client, selectionType, "value", colorValue, sizeof(colorValue), "");
+		if (colorValue[0] == '\0')
+		{
+			return;
+		}
+
+		int color = 0;
+		HubChatColorType colorType = HubChat_ParseColorString(colorValue, color);
+		if (colorType == HubChatColor_None && !StrEqual(colorValue, "none", false) && !StrEqual(colorValue, "default", false))
+		{
+			return;
+		}
+
+		if (StrEqual(selectionType, SELECTION_CHAT_COLOR))
+		{
+			HubChat_SetClientChatColor(client, colorType, color);
+		}
+		else if (StrEqual(selectionType, SELECTION_NAME_COLOR))
+		{
+			HubChat_SetClientNameColor(client, colorType, color);
+		}
+		else
+		{
+			HubChat_SetClientTagColor(client, colorType, color);
+		}
+	}
 }
 
 /**
@@ -1055,5 +1221,17 @@ void ClearCosmeticFromInventory(int client, const char[] selectionType)
 	else if (StrEqual(selectionType, SELECTION_SPAWN_PARTICLE))
 	{
 		SpawnParticles_Clear(client);
+	}
+	else if (StrEqual(selectionType, SELECTION_CHAT_COLOR))
+	{
+		HubChat_SetClientChatColor(client, HubChatColor_None, 0);
+	}
+	else if (StrEqual(selectionType, SELECTION_NAME_COLOR))
+	{
+		HubChat_SetClientNameColor(client, HubChatColor_Team, 0);
+	}
+	else if (StrEqual(selectionType, SELECTION_TAG_COLOR))
+	{
+		HubChat_SetClientTagColor(client, HubChatColor_None, 0);
 	}
 }

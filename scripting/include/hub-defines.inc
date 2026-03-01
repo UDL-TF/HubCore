@@ -1,5 +1,5 @@
 #define MAX_CATEGORIES		 256
-#define MAX_ITEMS					 256
+#define MAX_ITEMS					 768
 
 #define HUB_PHRASE_SOMETHING_WENT_WRONG "Hub_Core_Something_Went_Wrong"
 

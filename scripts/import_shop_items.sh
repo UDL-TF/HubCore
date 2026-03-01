@@ -136,8 +136,8 @@ $MANAGER add-item "Spawn Particles" "Wood Explosion" 400 "Wood break effect"
 $MANAGER add-item "Spawn Particles" "Wood Dust" 300 "Wood dust puff"
 echo ""
 
-# Sync Chat Colors from config
-echo "Step 6: Syncing Chat Colors from config..."
+# Sync Chat/Name Colors from config
+echo "Step 6: Syncing Chat + Name Colors from config..."
 $MANAGER sync-colors "$(dirname "$0")/../configs/hub/colors.cfg"
 echo ""
 

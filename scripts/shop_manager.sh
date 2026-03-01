@@ -86,7 +86,7 @@ usage() {
     echo "Commands:"
     echo "  add-item <category> <name> <price> [description] [type]"
     echo "      Add a new item to the shop"
-    echo "      Categories: Tags, Trails, Footprints, 'Spawn Particles', 'Chat Colors'"
+    echo "      Categories: Tags, Trails, Footprints, 'Spawn Particles', 'Chat Colors', 'Name Colors'"
     echo ""
     echo "  give-item <steamid> <item_name>"
     echo "      Give an item to a player for free"
@@ -98,7 +98,7 @@ usage() {
     echo "      List all items or items in a specific category"
     echo ""
     echo "  list-colors"
-    echo "      List all chat colors with prices"
+    echo "      List all chat/name colors with prices"
     echo ""
     echo "  list-cats"
     echo "      List all categories"
@@ -146,6 +146,7 @@ cmd_add_item() {
             "Footprints") type="footprint";;
             "Spawn Particles") type="spawn_particle";;
             "Chat Colors") type="chat_color";;
+            "Name Colors") type="name_color";;
             *) type="item";;
         esac
     fi
@@ -261,19 +262,19 @@ cmd_list_cats() {
 
 # List chat colors specifically
 cmd_list_colors() {
-    echo -e "${BLUE}Chat Colors in Shop:${NC}"
+    echo -e "${BLUE}Chat/Name Colors in Shop:${NC}"
     echo ""
-    mysql_query "SELECT i.id, i.name, i.price, IF(i.is_active, 'Yes', 'No') AS active
+    mysql_query "SELECT i.id, c.name AS category, i.name, i.price, IF(i.is_active, 'Yes', 'No') AS active
                  FROM ${DB_PREFIX}items_v2 i
                  JOIN ${DB_PREFIX}categories_v2 c ON i.category_id = c.id
-                 WHERE c.name = 'Chat Colors'
-                 ORDER BY i.price, i.name;"
+                 WHERE c.name IN ('Chat Colors', 'Name Colors')
+                 ORDER BY c.name, i.price, i.name;"
     
     local total=$(mysql_query_silent "SELECT COUNT(*) FROM ${DB_PREFIX}items_v2 i
                   JOIN ${DB_PREFIX}categories_v2 c ON i.category_id = c.id
-                  WHERE c.name = 'Chat Colors' AND i.is_active = TRUE;")
+                  WHERE c.name IN ('Chat Colors', 'Name Colors') AND i.is_active = TRUE;")
     echo ""
-    echo -e "${GREEN}Total active chat colors: $total${NC}"
+    echo -e "${GREEN}Total active chat/name colors: $total${NC}"
 }
 
 # Update item price
@@ -355,7 +356,8 @@ cmd_init_categories() {
                  ('Trails', 'Trail effects that follow players', 2, TRUE),
                  ('Footprints', 'Footstep effects when walking', 3, TRUE),
                  ('Spawn Particles', 'Particle effects on player spawn', 4, TRUE),
-                 ('Chat Colors', 'Custom colors for chat messages', 5, TRUE);"
+                 ('Chat Colors', 'Custom colors for chat messages', 5, TRUE),
+                 ('Name Colors', 'Custom colors for player names', 6, TRUE);"
     
     if mysql_query "$query"; then
         echo -e "${GREEN}✓ Categories initialized${NC}"
@@ -366,7 +368,7 @@ cmd_init_categories() {
     fi
 }
 
-# Sync colors.cfg with database
+# Sync colors.cfg with database (Chat Colors + Name Colors)
 cmd_sync_colors() {
     local config_file="${1:-$(dirname "$0")/../configs/hub/colors.cfg}"
     
@@ -401,7 +403,7 @@ cmd_sync_colors() {
             # Escape single quotes in name
             local escaped_name=$(echo "$name" | sed "s/'/''/g")
             
-            # Check if item exists
+            # Check if chat color item exists
             local exists=$(mysql_query_silent "SELECT COUNT(*) FROM ${DB_PREFIX}items_v2 i
                            JOIN ${DB_PREFIX}categories_v2 c ON i.category_id = c.id
                            WHERE c.name = 'Chat Colors' AND i.name = '$escaped_name';")
@@ -421,6 +423,24 @@ cmd_sync_colors() {
                              WHERE c.name = 'Chat Colors' AND i.name = '$escaped_name';"
                 mysql_query "$query" 2>/dev/null
                 echo -e "  ${YELLOW}~ Updated:${NC} $name ($cost credits)"
+            fi
+
+            # Keep Name Colors category in sync with same palette and pricing.
+            local exists_name=$(mysql_query_silent "SELECT COUNT(*) FROM ${DB_PREFIX}items_v2 i
+                               JOIN ${DB_PREFIX}categories_v2 c ON i.category_id = c.id
+                               WHERE c.name = 'Name Colors' AND i.name = '$escaped_name';")
+
+            if [ "$exists_name" -eq "0" ]; then
+                local query="INSERT INTO ${DB_PREFIX}items_v2 (category_id, name, description, type, price, is_active)
+                             SELECT id, '$escaped_name', '$escaped_name name color', 'name_color', $cost, TRUE
+                             FROM ${DB_PREFIX}categories_v2 WHERE name = 'Name Colors';"
+                mysql_query "$query" 2>/dev/null
+            else
+                local query="UPDATE ${DB_PREFIX}items_v2 i
+                             JOIN ${DB_PREFIX}categories_v2 c ON i.category_id = c.id
+                             SET i.price = $cost
+                             WHERE c.name = 'Name Colors' AND i.name = '$escaped_name';"
+                mysql_query "$query" 2>/dev/null
             fi
             
             ((count++))

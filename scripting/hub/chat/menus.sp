@@ -153,8 +153,10 @@ bool Chat_ClientOwnsColor(int client, int colorIndex)
         }
     }
     
-    // Check if player has purchased this color from shop
-    return Hub_HasPlayerItemName(client, CHAT_COLORS_CATEGORY, g_MenuColors[colorIndex].name) > 0;
+    // Check if player has purchased this color from shop.
+    // Support both Chat Colors and Name Colors categories.
+    return Hub_HasPlayerItemName(client, CHAT_COLORS_CATEGORY, g_MenuColors[colorIndex].name) > 0
+        || Hub_HasPlayerItemName(client, "Name Colors", g_MenuColors[colorIndex].name) > 0;
 }
 
 /**

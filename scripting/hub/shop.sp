@@ -121,6 +121,12 @@ StateSetPlayerItem SetHubPlayerItem(int client, bool drawMoney = true)
 	int categoryId = prepareBuying[client].categoryId;
 	int purchasePrice = 0;
 
+	if (categoryId <= 0 || categoryId >= MAX_CATEGORIES || itemId <= 0 || itemId >= MAX_ITEMS)
+	{
+		LogError("SetHubPlayerItem: Invalid category/item (%d/%d).", categoryId, itemId);
+		return GENERIC_ERROR;
+	}
+
 	if (drawMoney)
 	{
 		// Find category id for item.
@@ -415,6 +421,11 @@ public void GetHubCategoriesCallback(Database db, DBResultSet results, const cha
 	while (results.FetchRow())
 	{
 		int categoryId = results.FetchInt(0);
+		if (categoryId <= 0 || categoryId >= MAX_CATEGORIES)
+		{
+			LogToFile(logFile, "[Shop] Skipping category id %d (MAX_CATEGORIES=%d)", categoryId, MAX_CATEGORIES);
+			continue;
+		}
 		hubCategories[categoryId].id = categoryId;
 		results.FetchString(1, name, sizeof(name));
 		hubCategories[categoryId].name = name;
@@ -449,6 +460,12 @@ public void GetHubItemsCallback(Database db, DBResultSet results, const char[] e
 	}
 
 	int	 categoryId = data;
+	if (categoryId <= 0 || categoryId >= MAX_CATEGORIES)
+	{
+		LogToFile(logFile, "[Shop] Invalid category id in items callback: %d", categoryId);
+		return;
+	}
+
 	int	 itemCount = 0;
 
 	char name[32], description[128], type[32];
@@ -456,6 +473,12 @@ public void GetHubItemsCallback(Database db, DBResultSet results, const char[] e
 	while (results.FetchRow())
 	{
 		int id						 = results.FetchInt(0);
+		if (id <= 0 || id >= MAX_ITEMS)
+		{
+			LogToFile(logFile, "[Shop] Skipping item id %d in category %d (MAX_ITEMS=%d)", id, categoryId, MAX_ITEMS);
+			continue;
+		}
+
 		hubItems[categoryId][id].id = id;
 		results.FetchString(1, name, sizeof(name));
 		hubItems[categoryId][id].name = name;
@@ -496,6 +519,12 @@ public void GetHubPlayerItemCallback(Database db, DBResultSet results, const cha
 	{
 		int itemId = results.FetchInt(0);
 		int purchasePrice = results.FetchInt(1);
+
+		if (itemId <= 0 || itemId >= MAX_ITEMS)
+		{
+			LogToFile(logFile, "[Shop] Skipping owned item id %d for %s (MAX_ITEMS=%d)", itemId, steamID, MAX_ITEMS);
+			continue;
+		}
 		
 		// Keep the most recent owned entry for duplicate rows.
 		if (hubPlayersItems[client][itemId].internal_OwnsItem)

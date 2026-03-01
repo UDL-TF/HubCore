@@ -24,7 +24,8 @@ INSERT INTO {PREFIX}categories_v2 (name, description, sort_order, is_active) VAL
 ('Trails', 'Trail effects that follow players', 2, TRUE),
 ('Footprints', 'Footstep effects when walking', 3, TRUE),
 ('Spawn Particles', 'Particle effects on player spawn', 4, TRUE),
-('Chat Colors', 'Custom colors for chat messages', 5, TRUE)
+('Chat Colors', 'Custom colors for chat messages', 5, TRUE),
+('Name Colors', 'Custom colors for player names', 6, TRUE)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 -- Add a new category
@@ -220,6 +221,18 @@ INSERT INTO {PREFIX}items_v2 (category_id, name, description, type, price, is_ac
 ((SELECT id FROM {PREFIX}categories_v2 WHERE name = 'Chat Colors'), 'Selfmade', 'TF2 Selfmade quality color', 'chat_color', 1000, TRUE),
 ((SELECT id FROM {PREFIX}categories_v2 WHERE name = 'Chat Colors'), 'Unusual', 'TF2 Unusual quality color', 'chat_color', 1000, TRUE),
 ((SELECT id FROM {PREFIX}categories_v2 WHERE name = 'Chat Colors'), 'Valve', 'TF2 Valve quality color', 'chat_color', 2000, TRUE);
+
+-- Mirror Chat Colors into Name Colors category (same name/price) where missing
+INSERT INTO {PREFIX}items_v2 (category_id, name, description, type, price, is_active)
+SELECT nc.id, ci.name, CONCAT(ci.name, ' name color'), 'name_color', ci.price, ci.is_active
+FROM {PREFIX}items_v2 ci
+JOIN {PREFIX}categories_v2 cc ON ci.category_id = cc.id AND cc.name = 'Chat Colors'
+JOIN {PREFIX}categories_v2 nc ON nc.name = 'Name Colors'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM {PREFIX}items_v2 ni
+    WHERE ni.category_id = nc.id AND ni.name = ci.name
+);
 
 
 -- ============================================================================
