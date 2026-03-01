@@ -403,7 +403,7 @@ void Menu_TagSettings(int client)
     // Enable/Disable Tag Toggle
     bool tagEnabled = HubChat_IsClientTagEnabled(client);
     Format(buffer, sizeof(buffer), "%T: %s", "Hub_Chat_TagVisibility", client, 
-        tagEnabled ? "✓" : "✗");
+        tagEnabled ? "ON" : "OFF");
     menu.AddItem("toggle", buffer);
     
     // Select Tag (from owned - integrates with existing Tags system)
@@ -669,10 +669,10 @@ void Menu_ColorSelection(int client, ChatColorMenuType menuType)
         
         bool ownsColor = Chat_ClientOwnsColor(client, i);
         
-        // Format: "Color Name" or "Color Name ✓" if owned
+        // Format: "Color Name" or "Color Name (Owned)" if owned
         if (ownsColor)
         {
-            Format(buffer, sizeof(buffer), "%s ✓", g_MenuColors[i].name);
+            Format(buffer, sizeof(buffer), "%s (Owned)", g_MenuColors[i].name);
             menu.AddItem(g_MenuColors[i].hex, buffer, ITEMDRAW_DEFAULT);
         }
         else

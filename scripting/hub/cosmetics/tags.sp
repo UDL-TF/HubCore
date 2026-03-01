@@ -15,6 +15,9 @@
 TagInfo g_Tags[TAGS_MAX_COUNT];
 int g_TagsCount = 0;
 
+#define TAGS_CUSTOM_ITEM_NAME "[Custom Tag]"
+#define TAGS_CUSTOM_MAX_LENGTH 24
+
 // Player selected tags
 int g_SelectedTag[MAXPLAYERS + 1] = { TAGS_NONE, ... };
 
@@ -33,8 +36,10 @@ void Tags_Init()
         LogMessage("[HubCore] Loaded %d tags from config", g_TagsCount);
     }
     
-    // Register command
-    RegConsoleCmd("sm_tags", Command_Tags, "Opens the tags menu");
+	    // Register command
+	    RegConsoleCmd("sm_tags", Command_Tags, "Opens the tags menu");
+	    RegConsoleCmd("sm_customtag", Command_CustomTag, "Sets your custom tag text (requires custom tag item)");
+	    RegConsoleCmd("sm_customtagcolor", Command_CustomTagColor, "Sets your custom tag color (requires custom tag item)");
     
     // Register cosmetic
     Cosmetics_Register(Cosmetic_Tag, "Hub_Cosmetics_Tags", "tags");
@@ -128,13 +133,140 @@ int Tags_ParseHexColor(const char[] hexColor)
  */
 public Action Command_Tags(int client, int args)
 {
-    if (!IsValidPlayer(client))
-    {
-        return Plugin_Handled;
-    }
-    
-    ShowTagsMenu(client, 0);
-    return Plugin_Handled;
+	if (!IsValidPlayer(client))
+	{
+		return Plugin_Handled;
+	}
+	
+	ShowTagsMenu(client, 0);
+	return Plugin_Handled;
+}
+
+bool Tags_HasCustomAccess(int client)
+{
+	return Hub_HasPlayerItemName(client, "Tags", TAGS_CUSTOM_ITEM_NAME) > 0;
+}
+
+void Tags_SaveCustomSelection(int client, const char[] tagText, HubChatColorType colorType, int colorValue)
+{
+	char colorStr[16];
+	HubChat_ColorTypeToString(colorType, colorValue, colorStr, sizeof(colorStr));
+	
+	JSON_Object tagData = new JSON_Object();
+	tagData.SetInt("id", -1);
+	tagData.SetString("name", tagText);
+	tagData.SetString("color", colorStr);
+	tagData.SetBool("custom", true);
+	
+	Selections_SetPlayer(client, SELECTION_TAG, tagData);
+}
+
+public Action Command_CustomTag(int client, int args)
+{
+	if (!IsValidPlayer(client))
+	{
+		return Plugin_Handled;
+	}
+
+	if (!Tags_HasCustomAccess(client))
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Not_Owned");
+		return Plugin_Handled;
+	}
+
+	if (args < 1)
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Usage");
+		return Plugin_Handled;
+	}
+
+	char tagText[64];
+	GetCmdArgString(tagText, sizeof(tagText));
+	StripQuotes(tagText);
+	TrimString(tagText);
+
+	if (strlen(tagText) == 0)
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Usage");
+		return Plugin_Handled;
+	}
+
+	if (strlen(tagText) > TAGS_CUSTOM_MAX_LENGTH)
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Too_Long", TAGS_CUSTOM_MAX_LENGTH);
+		return Plugin_Handled;
+	}
+
+	for (int i = 0; tagText[i] != '\0'; i++)
+	{
+		if (tagText[i] >= 0x01 && tagText[i] <= 0x09)
+		{
+			CPrintToChat(client, "%t", "Hub_Tags_Custom_Invalid");
+			return Plugin_Handled;
+		}
+	}
+
+	int colorValue = 0;
+	HubChatColorType colorType = Chat_Colors_GetTagColor(client, colorValue);
+	if (colorType == HubChatColor_None)
+	{
+		colorType = HubChatColor_Hex;
+		colorValue = 0xFFD700;
+	}
+
+	Chat_Colors_SetTag(client, tagText);
+	Chat_Colors_SetTagColor(client, colorType, colorValue);
+	Chat_Colors_SetTagEnabled(client, true);
+	g_SelectedTag[client] = TAGS_NONE;
+
+	Tags_SaveCustomSelection(client, tagText, colorType, colorValue);
+	CPrintToChat(client, "%t", "Hub_Tags_Custom_Set", tagText);
+
+	return Plugin_Handled;
+}
+
+public Action Command_CustomTagColor(int client, int args)
+{
+	if (!IsValidPlayer(client))
+	{
+		return Plugin_Handled;
+	}
+
+	if (!Tags_HasCustomAccess(client))
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Not_Owned");
+		return Plugin_Handled;
+	}
+
+	if (args < 1)
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Color_Usage");
+		return Plugin_Handled;
+	}
+
+	char colorArg[32];
+	GetCmdArg(1, colorArg, sizeof(colorArg));
+	TrimString(colorArg);
+
+	int colorValue = 0;
+	HubChatColorType colorType = HubChat_ParseColorString(colorArg, colorValue);
+	if (colorType == HubChatColor_None)
+	{
+		CPrintToChat(client, "%t", "Hub_Tags_Custom_Color_Usage");
+		return Plugin_Handled;
+	}
+
+	Chat_Colors_SetTagColor(client, colorType, colorValue);
+
+	char currentTag[64];
+	Chat_Colors_GetTag(client, currentTag, sizeof(currentTag));
+	if (strlen(currentTag) > 0)
+	{
+		Tags_SaveCustomSelection(client, currentTag, colorType, colorValue);
+	}
+
+	CPrintToChat(client, "%t", "Hub_Tags_Custom_Color_Set");
+	return Plugin_Handled;
 }
 
 /**
@@ -160,15 +292,14 @@ void ShowTagsMenu(int client, int page)
     // Add available tags
     for (int i = 0; i < g_TagsCount; i++)
     {
-        // Skip empty/null tags (spacers)
-        if (strlen(g_Tags[i].name) == 0 ||
-            StrEqual(g_Tags[i].name, "\\0") ||
-            StrEqual(g_Tags[i].name, "{null}", false) ||
-            StrEqual(g_Tags[i].name, "{empty}", false))
-        {
-            menu.AddItem("", "", ITEMDRAW_SPACER);
-            continue;
-        }
+	        // Skip empty/null tags (spacers)
+	        if (strlen(g_Tags[i].name) == 0 ||
+	            StrEqual(g_Tags[i].name, "\\0") ||
+	            StrEqual(g_Tags[i].name, "{null}", false) ||
+	            StrEqual(g_Tags[i].name, "{empty}", false))
+	        {
+	            continue;
+	        }
         
         // Skip disabled tags
         if (!g_Tags[i].isEnabled)
@@ -182,14 +313,20 @@ void ShowTagsMenu(int client, int page)
         // Check if player owns this tag
         bool hasItem = Hub_HasPlayerItemName(client, "Tags", g_Tags[i].name) > 0;
         
-        if (hasItem)
-        {
-            int style = (g_SelectedTag[client] == i) ? ITEMDRAW_DISABLED : ITEMDRAW_DEFAULT;
-            menu.AddItem(info, g_Tags[i].name, style);
-        }
-    }
-    
-    menu.DisplayAt(client, page, MENU_TIME_FOREVER);
+	        if (hasItem)
+	        {
+	            int style = (g_SelectedTag[client] == i) ? ITEMDRAW_DISABLED : ITEMDRAW_DEFAULT;
+	            menu.AddItem(info, g_Tags[i].name, style);
+	        }
+	    }
+
+		if (Tags_HasCustomAccess(client))
+		{
+			menu.AddItem("custom_tag", "Set Custom Tag (!customtag <text>)", ITEMDRAW_DEFAULT);
+			menu.AddItem("custom_color", "Set Custom Color (!customtagcolor <#RRGGBB|team|green|olive>)", ITEMDRAW_DEFAULT);
+		}
+	    
+	    menu.DisplayAt(client, page, MENU_TIME_FOREVER);
 }
 
 /**
@@ -201,14 +338,25 @@ public int MenuHandler_Tags(Menu menu, MenuAction action, int param1, int param2
     {
         case MenuAction_Select:
         {
-            char info[8];
-            menu.GetItem(param2, info, sizeof(info));
-            
-            int choice = StringToInt(info);
-            Tags_SelectTag(param1, choice);
-            
-            // Reopen menu at the same position
-            ShowTagsMenu(param1, GetMenuSelectionPosition());
+	            char info[64];
+	            menu.GetItem(param2, info, sizeof(info));
+
+				if (StrEqual(info, "custom_tag"))
+				{
+					CPrintToChat(param1, "%t", "Hub_Tags_Custom_Usage");
+				}
+				else if (StrEqual(info, "custom_color"))
+				{
+					CPrintToChat(param1, "%t", "Hub_Tags_Custom_Color_Usage");
+				}
+				else
+				{
+					int choice = StringToInt(info);
+					Tags_SelectTag(param1, choice);
+				}
+	            
+	            // Reopen menu at the same position
+	            ShowTagsMenu(param1, GetMenuSelectionPosition());
         }
         case MenuAction_Cancel:
         {

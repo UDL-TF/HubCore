@@ -233,9 +233,9 @@ void ShowPreferencesMenu(int client)
 			Format(translatedName, sizeof(translatedName), "%t", preferenceName);
 
 			if (cookieValue == 0)
-				Format(display, sizeof(display), "☐ %s", translatedName);
+				Format(display, sizeof(display), "[ ] %s", translatedName);
 			else
-				Format(display, sizeof(display), "☑ %s", translatedName);
+				Format(display, sizeof(display), "[x] %s", translatedName);
 
 			menu.AddItem(info, display, ITEMDRAW_DEFAULT);
 		}
@@ -415,7 +415,11 @@ public void CreateDynamicItemMenu(int client, int categoryId)
 	for (int i = 0; i < MAX_ITEMS; i++)
 	{
 		// Items are stored at their database ID position, so check if this slot has a valid item
-		if (hubItems[categoryId][i].id > 0 && strcmp(hubItems[categoryId][i].name, "") != 0)
+		if (hubItems[categoryId][i].id > 0 &&
+			strcmp(hubItems[categoryId][i].name, "") != 0 &&
+			!StrEqual(hubItems[categoryId][i].name, "\\0") &&
+			!StrEqual(hubItems[categoryId][i].name, "{null}", false) &&
+			!StrEqual(hubItems[categoryId][i].name, "{empty}", false))
 		{
 			validItemIds[validItemCount] = i;  // Store the ID (which equals the array index)
 			validItemCount++;
@@ -668,6 +672,9 @@ public void CreateInventoryItemsMenu(int client, int categoryId)
 		int itemId = hubItems[categoryId][i].id;
 		if (itemId <= 0) continue;
 		if (strcmp(hubItems[categoryId][i].name, "") == 0) continue;
+		if (StrEqual(hubItems[categoryId][i].name, "\\0")) continue;
+		if (StrEqual(hubItems[categoryId][i].name, "{null}", false)) continue;
+		if (StrEqual(hubItems[categoryId][i].name, "{empty}", false)) continue;
 
 		bool ownsItem = hubPlayersItems[client][itemId].internal_OwnsItem;
 		if (!ownsItem)
@@ -682,7 +689,7 @@ public void CreateInventoryItemsMenu(int client, int categoryId)
 		char betterName[128];
 		if (isEquipped)
 		{
-			Format(betterName, sizeof(betterName), "✓ %s [%t]", hubItems[categoryId][i].name, "Hub_Cosmetics_Equipped");
+			Format(betterName, sizeof(betterName), "[E] %s [%t]", hubItems[categoryId][i].name, "Hub_Cosmetics_Equipped");
 		}
 		else
 		{

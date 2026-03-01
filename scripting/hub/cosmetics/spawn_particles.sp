@@ -467,20 +467,22 @@ public Action Hook_SpawnParticleSetTransmit(int particle, int client)
 	{
 		return Plugin_Handled;
 	}
-	
-	// Check hiding preference in real-time from cookie
-	Cookie hideParticlesCookie = GetCookieByName(HUB_COOKIE_SPAWN_PARTICLE_HIDING);
-	if (hideParticlesCookie != null)
+
+	// Use cached preference loaded from cookies.
+	// This is reliable on Linux and avoids cookie reads every transmit hook.
+	if (!g_IsHidingSpawnParticles[client])
 	{
-		int hideValue = GetCookieValue(client, hideParticlesCookie);
-		if (hideValue == 1)
-		{
-			// Hide all spawn particles (including own) if preference is enabled
-			return Plugin_Handled;
-		}
+		return Plugin_Continue;
+	}
+
+	// Hide only other players' spawn particles, keep your own visible.
+	int owner = GetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity");
+	if (owner == client)
+	{
+		return Plugin_Continue;
 	}
 	
-	return Plugin_Continue;
+	return Plugin_Handled;
 }
 
 /**
@@ -492,7 +494,9 @@ void SpawnParticles_OnClientDisconnect(int client)
 {
 	g_SelectedParticle[client] = 0;
 	g_IsHidingSpawnParticles[client] = false;
-}// ============================================================================
+}
+
+// ============================================================================
 // Inventory Integration Helper Functions
 // ============================================================================
 

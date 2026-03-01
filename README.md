@@ -155,6 +155,8 @@ All cosmetic configuration files are located in `configs/hub/`:
 | `sm_shop` | Opens the shop |
 | `sm_inventory` | Opens your inventory |
 | `sm_tags` | Opens the tags menu |
+| `sm_customtag <text>` | Set your custom tag text (requires `[Custom Tag]` item) |
+| `sm_customtagcolor <#RRGGBB\|team\|green\|olive>` | Set your custom tag color (requires `[Custom Tag]` item) |
 | `sm_trails` / `sm_trail` | Opens the trails menu |
 | `sm_hidetrail` | Toggle hiding other players' trails |
 | `sm_footprints` / `sm_footsteps` | Opens the footprints menu |

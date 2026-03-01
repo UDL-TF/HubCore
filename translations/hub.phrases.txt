@@ -144,6 +144,36 @@
     "#format"  "{1:s}"
     "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] You do not own the {#27939D}{1}{#ffffff} tag."
   }
+  "Hub_Tags_Custom_Not_Owned"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] You need the [Custom Tag] item to use custom tags."
+  }
+  "Hub_Tags_Custom_Usage"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Usage: !customtag <text> (max 24 chars)."
+  }
+  "Hub_Tags_Custom_Color_Usage"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Usage: !customtagcolor <#RRGGBB|team|green|olive>."
+  }
+  "Hub_Tags_Custom_Too_Long"
+  {
+    "#format"  "{1:i}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Custom tag is too long. Max length is {1}."
+  }
+  "Hub_Tags_Custom_Invalid"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Custom tag contains invalid characters."
+  }
+  "Hub_Tags_Custom_Set"
+  {
+    "#format"  "{1:s}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Custom tag set to {#27939D}{1}{#ffffff}."
+  }
+  "Hub_Tags_Custom_Color_Set"
+  {
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Custom tag color updated."
+  }
 
   // Footprints
   "Hub_Cosmetics_Footprints"

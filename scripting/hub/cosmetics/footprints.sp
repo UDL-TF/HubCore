@@ -34,6 +34,7 @@ int g_FootprintsCount = sizeof(g_Footprints);
 // Player selected footprints
 int g_SelectedFootprint[MAXPLAYERS + 1] = { FOOTPRINTS_NONE, ... };
 float g_FootprintValue[MAXPLAYERS + 1] = { 0.0, ... };
+float g_LastFootprintApply[MAXPLAYERS + 1] = { 0.0, ... };
 
 /**
  * Initialize the footprints system.
@@ -197,17 +198,19 @@ void Footprints_SelectFootprint(int client, int footprintIndex)
     g_SelectedFootprint[client] = footprintIndex;
     g_FootprintValue[client] = g_Footprints[footprintIndex].value;
     
-    // Apply footprint attribute
-    if (footprintIndex == FOOTPRINTS_NONE || g_Footprints[footprintIndex].value == 0.0)
-    {
-        TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", 0.0);
+	// Apply footprint attribute
+	if (footprintIndex == FOOTPRINTS_NONE || g_Footprints[footprintIndex].value == 0.0)
+	{
+		TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", 0.0);
+		g_LastFootprintApply[client] = 0.0;
         
         // Clear selection in database
         Selections_ClearPlayer(client, SELECTION_FOOTPRINT);
     }
-    else
-    {
-        TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_Footprints[footprintIndex].value);
+	else
+	{
+		TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_Footprints[footprintIndex].value);
+		g_LastFootprintApply[client] = GetGameTime();
         
         // Save selection to database
         JSON_Object footprintData = new JSON_Object();
@@ -314,8 +317,36 @@ void Footprints_ApplySelection(int client)
     // when this is called on player spawn. Ownership is verified when opening
     // the cosmetics menu or when selecting a new cosmetic.
     
-    // Apply the footprint
-    TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
+	// Apply the footprint
+	TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
+	g_LastFootprintApply[client] = GetGameTime();
+}
+
+/**
+ * Keeps footprint attributes applied while alive.
+ * Some game events on Linux can strip the player attribute shortly after spawn.
+ */
+void Footprints_OnPlayerRunCmd(int client)
+{
+	if (!IsValidPlayer(client) || !IsPlayerAlive(client))
+	{
+		return;
+	}
+
+	int footprintIndex = g_SelectedFootprint[client];
+	if (footprintIndex <= FOOTPRINTS_NONE || footprintIndex >= g_FootprintsCount)
+	{
+		return;
+	}
+
+	float now = GetGameTime();
+	if ((now - g_LastFootprintApply[client]) < 1.0)
+	{
+		return;
+	}
+
+	TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
+	g_LastFootprintApply[client] = now;
 }
 
 /**
@@ -327,6 +358,7 @@ void Footprints_OnClientDisconnect(int client)
 {
     g_SelectedFootprint[client] = FOOTPRINTS_NONE;
     g_FootprintValue[client] = 0.0;
+    g_LastFootprintApply[client] = 0.0;
 }
 
 // ============================================================================

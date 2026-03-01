@@ -11,6 +11,8 @@
 #include <tf2>
 #include <tf2_stocks>
 
+#define TRAILS_BEAM_SPRITE_FALLBACK "materials/sprites/laserbeam.vmt"
+
 // ConVars
 ConVar g_cvTrailsEnabled = null;
 ConVar g_cvForceCheapTrails = null;
@@ -111,12 +113,30 @@ void Trails_OnMapStart()
         LogMessage("[HubCore] Loaded %d trails from config", g_TrailsCount);
     }
     
-    // Precache beam sprite
-    g_BeamSprite = PrecacheModel(TRAILS_BEAM_SPRITE_VMT, true);
-    
-    // Add to downloads table
-    AddFileToDownloadsTable(TRAILS_BEAM_SPRITE_VMT);
-    AddFileToDownloadsTable(TRAILS_BEAM_SPRITE_VTF);
+    bool hasCustomBeam = FileExists(TRAILS_BEAM_SPRITE_VMT, true) && FileExists(TRAILS_BEAM_SPRITE_VTF, true);
+
+    if (hasCustomBeam)
+    {
+        g_BeamSprite = PrecacheModel(TRAILS_BEAM_SPRITE_VMT, true);
+        AddFileToDownloadsTable(TRAILS_BEAM_SPRITE_VMT);
+        AddFileToDownloadsTable(TRAILS_BEAM_SPRITE_VTF);
+    }
+    else
+    {
+        g_BeamSprite = 0;
+    }
+
+    // Fallback to a built-in sprite if custom materials are missing/case-mismatched (common on Linux).
+    if (g_BeamSprite <= 0)
+    {
+        g_BeamSprite = PrecacheModel(TRAILS_BEAM_SPRITE_FALLBACK, true);
+        LogMessage("[HubCore] Trails using fallback sprite: %s", TRAILS_BEAM_SPRITE_FALLBACK);
+    }
+
+    if (g_BeamSprite <= 0)
+    {
+        LogError("[HubCore] Trails failed to precache any beam sprite. Trails will be invisible.");
+    }
 }
 
 /**
@@ -651,13 +671,13 @@ void Trails_DrawExpensiveTrail(int client, int trailIndex)
  */
 void Trails_CreatePlayerTrail(int client, int trailIndex, float playerOrigin[3], float secondPoint[3])
 {
-    // Check for teleportation first
-    bool hasClientTeleported = GetVectorDistance(playerOrigin, secondPoint, false) > 50.0;
-    
-    if (!g_cvTrailsEnabled.BoolValue || g_SelectedTrail[client] == TRAILS_NONE || !IsPlayerAlive(client) || hasClientTeleported)
-    {
-        return;
-    }
+	// Check for teleportation first
+	bool hasClientTeleported = GetVectorDistance(playerOrigin, secondPoint, false) > 50.0;
+	
+	if (!g_cvTrailsEnabled.BoolValue || g_SelectedTrail[client] == TRAILS_NONE || !IsPlayerAlive(client) || hasClientTeleported || g_BeamSprite <= 0)
+	{
+		return;
+	}
     
     g_DynamicColor[client].a = g_Trails[trailIndex].color.a;
     

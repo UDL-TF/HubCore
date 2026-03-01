@@ -215,6 +215,9 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, float vel[3
 	
 	// Render trails
 	Trails_OnPlayerRunCmd(client);
+
+	// Keep footprint attribute persistent
+	Footprints_OnPlayerRunCmd(client);
 	
 	return Plugin_Continue;
 }
