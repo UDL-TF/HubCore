@@ -69,6 +69,10 @@ int g_ParticlesCount = sizeof(g_Particles);
 int g_SelectedParticle[MAXPLAYERS + 1] = { 0, ... };  // 0 = none
 bool g_IsHidingSpawnParticles[MAXPLAYERS + 1];
 
+// Maps entity index -> owning client for spawn particle entities
+// Used in the SetTransmit hook instead of GetEntPropEnt to avoid prop lookup issues
+int g_ParticleOwner[2048];
+
 /**
  * Initialize the spawn particles system.
  */
@@ -308,6 +312,12 @@ void SpawnParticles_ApplySelection(int client)
 	// Load hide preference from cookie
 	SpawnParticles_LoadHidingPreference(client);
 	
+	// If the player wants to hide spawn particles, don't create one on their spawn
+	if (g_IsHidingSpawnParticles[client])
+	{
+		return;
+	}
+	
 	// If we have a selection in memory, apply it
 	if (g_SelectedParticle[client] > 0 && g_SelectedParticle[client] < g_ParticlesCount)
 	{
@@ -419,8 +429,12 @@ void SpawnParticles_CreateParticle(int client, const char[] particleType, float 
 	SetVariantString(playerName);
 	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 	
-	// Store the owner in the particle entity for later reference
-	SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", client);
+	// Track owner in our own array (more reliable than m_hOwnerEntity send prop)
+	g_ParticleOwner[particle] = client;
+	
+	// Clear FL_EDICT_ALWAYS (bit 3) so the engine calls ShouldTransmit per client,
+	// which is required for SDKHook_SetTransmit to fire on parented entities.
+	SetEdictFlags(particle, GetEdictFlags(particle) & ~(1 << 3));
 	
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
@@ -451,6 +465,7 @@ public Action Timer_DeleteParticle(Handle timer, int entRef)
         
         if (StrEqual(classname, "info_particle_system", false))
         {
+            g_ParticleOwner[particle] = 0;
             RemoveEntity(particle);
         }
     }
@@ -476,7 +491,7 @@ public Action Hook_SpawnParticleSetTransmit(int particle, int client)
 	}
 
 	// Hide only other players' spawn particles, keep your own visible.
-	int owner = GetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity");
+	int owner = g_ParticleOwner[particle];
 	if (owner == client)
 	{
 		return Plugin_Continue;
