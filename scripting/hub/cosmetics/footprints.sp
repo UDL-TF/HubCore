@@ -77,8 +77,28 @@ public void Event_PlayerSpawn_Footprints(Event event, const char[] name, bool do
         return;
     }
     
-    // Apply footprint on spawn
+    // Reset apply time so OnPlayerRunCmd can immediately re-apply the moment the delay fires
+    g_LastFootprintApply[client] = 0.0;
+    
+    // Delay the apply so TF2 finishes stripping/resetting attributes during the spawn sequence
+    // before we set them. Applying immediately causes a brief flash then disappears.
+    CreateTimer(0.5, Timer_ApplyFootprints, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+}
+
+/**
+ * Timer to apply footprints after player has fully spawned.
+ */
+public Action Timer_ApplyFootprints(Handle timer, int userid)
+{
+    int client = GetClientOfUserId(userid);
+    
+    if (!IsValidPlayer(client) || !IsPlayerAlive(client))
+    {
+        return Plugin_Stop;
+    }
+    
     Footprints_ApplySelection(client);
+    return Plugin_Stop;
 }
 
 /**
