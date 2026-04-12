@@ -435,12 +435,9 @@ void SpawnParticles_CreateParticle(int client, const char[] particleType, float 
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
 	
-	// Clear FL_EDICT_ALWAYS (bit 3) AFTER activation - ActivateEntity sets this flag on
-	// parented entities. Clearing it here forces the engine to call ShouldTransmit per
-	// client so SDKHook_SetTransmit fires and hiding preferences are respected.
-	SetEdictFlags(particle, GetEdictFlags(particle) & ~(1 << 3));
-	
-	// Set transmit hook to control visibility
+	// Set transmit hook to control visibility.
+	// Note: FL_EDICT_ALWAYS is cleared inside the hook itself on every call because
+	// the engine continuously re-sets it on parented entities.
 	SDKHook(particle, SDKHook_SetTransmit, Hook_SpawnParticleSetTransmit);
 	
 	// Delete after duration
@@ -479,13 +476,19 @@ public Action Timer_DeleteParticle(Handle timer, int entRef)
  */
 public Action Hook_SpawnParticleSetTransmit(int particle, int client)
 {
+	// The engine re-sets FL_EDICT_ALWAYS on parented entities every network update,
+	// bypassing ShouldTransmit checks. Clear it here each time so this hook keeps firing.
+	if (GetEdictFlags(particle) & FL_EDICT_ALWAYS)
+	{
+		SetEdictFlags(particle, GetEdictFlags(particle) ^ FL_EDICT_ALWAYS);
+	}
+
 	if (!IsValidPlayer(client))
 	{
 		return Plugin_Handled;
 	}
 
 	// Use cached preference loaded from cookies.
-	// This is reliable on Linux and avoids cookie reads every transmit hook.
 	if (!g_IsHidingSpawnParticles[client])
 	{
 		return Plugin_Continue;
