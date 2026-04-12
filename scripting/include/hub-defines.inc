@@ -25,6 +25,11 @@
 #define HUB_PHRASE_CREDITS_RECIEVED_MESSAGE_ENABLED "Hub_Credits_Recieved_Message_Enabled"
 #define HUB_PHRASE_CREDITS_RECIEVED_MESSAGE_DISABLED "Hub_Credits_Recieved_Message_Disabled"
 
+// Math Quiz phrases
+#define HUB_PHRASE_MATHQUIZ_QUESTION  "Hub_MathQuiz_Question"
+#define HUB_PHRASE_MATHQUIZ_WINNER    "Hub_MathQuiz_Winner"
+#define HUB_PHRASE_MATHQUIZ_NO_WINNER "Hub_MathQuiz_No_Winner"
+
 // Cookies Names
 #define HUB_COOKIE_DISABLED_CREDIT_KILL_REWARD_MESSAGE "disabled_credit_kill_reward_message"
 #define HUB_COOKIE_DISABLED_CREDIT_RECEIVED_MESSAGE "disabled_credit_received_message"

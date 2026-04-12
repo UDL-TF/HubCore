@@ -465,4 +465,22 @@
   {
     "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Invalid color format. Use: team, green, olive, or #RRGGBB"
   }
+
+  // ==================== Math Quiz ====================
+
+  "Hub_MathQuiz_Question"
+  {
+    "#format"  "{1:s},{2:i},{3:i}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] {#FFCC00}Math Quiz!{#ffffff} What is {#27939D}{1}{#ffffff}? | Bounty: {#27939D}{2}{#ffffff} credits | Type your answer in chat within {#27939D}{3}{#ffffff}s!"
+  }
+  "Hub_MathQuiz_Winner"
+  {
+    "#format"  "{1:s},{2:i}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] {#27939D}{1}{#ffffff} answered the math quiz correctly and won {#27939D}{2}{#ffffff} credits!"
+  }
+  "Hub_MathQuiz_No_Winner"
+  {
+    "#format"  "{1:i}"
+    "en"  "[{#95F3E3}H{#08C4CD}U{#27939D}B{#ffffff}] Nobody answered the math quiz in time. The answer was {#27939D}{1}{#ffffff}."
+  }
 }

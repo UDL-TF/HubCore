@@ -81,6 +81,9 @@ char						preferenceData[][] = {
 #include "hub/chat/formatting.sp"
 #include "hub/chat/menus.sp"
 
+// Miscellaneous module includes
+#include "hub/mathquiz.sp"
+
 /**
  * If we are connecting to the database.
  */
@@ -144,6 +147,9 @@ public void OnPluginStart()
 	Chat_Processor_Init();
 	Chat_Colors_Init();
 	Chat_Menus_Init();
+
+	// Initialize math quiz
+	MathQuiz_Init();
 }
 
 /* Player connections */
