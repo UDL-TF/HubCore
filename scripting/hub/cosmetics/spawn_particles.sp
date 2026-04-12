@@ -432,12 +432,13 @@ void SpawnParticles_CreateParticle(int client, const char[] particleType, float 
 	// Track owner in our own array (more reliable than m_hOwnerEntity send prop)
 	g_ParticleOwner[particle] = client;
 	
-	// Clear FL_EDICT_ALWAYS (bit 3) so the engine calls ShouldTransmit per client,
-	// which is required for SDKHook_SetTransmit to fire on parented entities.
-	SetEdictFlags(particle, GetEdictFlags(particle) & ~(1 << 3));
-	
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
+	
+	// Clear FL_EDICT_ALWAYS (bit 3) AFTER activation - ActivateEntity sets this flag on
+	// parented entities. Clearing it here forces the engine to call ShouldTransmit per
+	// client so SDKHook_SetTransmit fires and hiding preferences are respected.
+	SetEdictFlags(particle, GetEdictFlags(particle) & ~(1 << 3));
 	
 	// Set transmit hook to control visibility
 	SDKHook(particle, SDKHook_SetTransmit, Hook_SpawnParticleSetTransmit);
