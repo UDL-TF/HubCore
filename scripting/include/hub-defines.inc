@@ -15,6 +15,7 @@
 #define HUB_PHRASE_PLAYER_CREDITS "Hub_Player_Credits"
 #define HUB_PHRASE_CREDITS_COINFLIP_USAGE "Hub_Credits_Coinflip_Usage"
 #define HUB_PHRASE_CREDITS_COINFLIP_NOT_ENOUGH_CREDITS "Hub_Credits_Coinflip_Not_Enough_Credits"
+#define HUB_PHRASE_CREDITS_COINFLIP_COOLDOWN "Hub_Credits_Coinflip_Cooldown"
 #define HUB_PHRASE_CREDITS_COINFLIP_WIN "Hub_Credits_Coinflip_Win"
 #define HUB_PHRASE_CREDITS_COINFLIP_LOSE "Hub_Credits_Coinflip_Lose"
 #define HUB_PHRASE_PLAYER_RECIEVE_CREDITS "Hub_Player_Recieve_Credits"

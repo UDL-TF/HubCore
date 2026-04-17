@@ -9,6 +9,7 @@ enum struct CreditPlayers
 	Handle	 currentCreditsPerMinute;
 	Coinflip currentCoinflip;
 	int			 currentCoinflipAmount;
+	float		 coinflipLastUsed;
 }
 
 CreditPlayers creditPlayers[MAXPLAYERS + 1];
@@ -22,6 +23,7 @@ void					CreditsOnStart()
 	Hub_Credits_Minute									= CreateConVar("hub_credits_minute", "4", "How minutes when to give credits.");
 	Hub_Credits_Amount									= CreateConVar("hub_credits_amount", "20", "How many credits to give per minute.");
 	Hub_Credits_Coinflip_Multiplier			= CreateConVar("hub_credits_coinflip_multiplier", "1.1", "How much to multiply the coinflip amount by.");
+	Hub_Credits_Coinflip_Cooldown				= CreateConVar("hub_credits_coinflip_cooldown", "15", "Cooldown in seconds between coinflip uses.");
 	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "1", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
 	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "2", "How much points to give/extract when death.");
 
@@ -157,6 +159,16 @@ public Action CommandCoinflip(int client, int args)
 		return Plugin_Handled;
 	}
 
+	float cooldown = Hub_Credits_Coinflip_Cooldown.FloatValue;
+	float elapsed	 = GetGameTime() - creditPlayers[client].coinflipLastUsed;
+
+	if (elapsed < cooldown)
+	{
+		int remaining = RoundToCeil(cooldown - elapsed);
+		CPrintToChat(client, "%t", HUB_PHRASE_CREDITS_COINFLIP_COOLDOWN, remaining);
+		return Plugin_Handled;
+	}
+
 	int currentAmount = Core_GetPlayerCredits(client);
 	int amount				= GetCmdArgInt(1);
 
@@ -168,6 +180,7 @@ public Action CommandCoinflip(int client, int args)
 	}
 
 	creditPlayers[client].currentCoinflipAmount = amount;
+	creditPlayers[client].coinflipLastUsed			= GetGameTime();
 
 	DisplayCoinflipMenu(client);
 
