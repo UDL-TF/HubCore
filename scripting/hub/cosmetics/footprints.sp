@@ -48,8 +48,11 @@ void Footprints_Init()
     // Register cosmetic
     Cosmetics_Register(Cosmetic_Footprint, "Hub_Cosmetics_Footprints", "footprints");
     
-    // Hook player spawn for applying footprints
+    // Hook both events:
+    // - player_spawn fires on every respawn
+    // - post_inventory_application fires on class change (resets attributes)
     HookEvent("player_spawn", Event_PlayerSpawn_Footprints);
+    HookEvent("post_inventory_application", Event_PostInventoryApplication_Footprints);
     
     LogMessage("[HubCore] Footprints system initialized with %d footprint types", g_FootprintsCount);
 }
@@ -66,7 +69,7 @@ void Footprints_RegisterNatives()
 }
 
 /**
- * Event handler for player spawn.
+ * Event handler for player_spawn. Fires on every respawn.
  */
 public void Event_PlayerSpawn_Footprints(Event event, const char[] name, bool dontBroadcast)
 {
@@ -77,28 +80,26 @@ public void Event_PlayerSpawn_Footprints(Event event, const char[] name, bool do
         return;
     }
     
-    // Reset apply time so OnPlayerRunCmd can immediately re-apply the moment the delay fires
+    // Reset apply time so OnPlayerRunCmd will immediately re-apply if TF2 wipes the attribute.
     g_LastFootprintApply[client] = 0.0;
-    
-    // Delay the apply so TF2 finishes stripping/resetting attributes during the spawn sequence
-    // before we set them. Applying immediately causes a brief flash then disappears.
-    CreateTimer(0.5, Timer_ApplyFootprints, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+    Footprints_ApplySelection(client);
 }
 
 /**
- * Timer to apply footprints after player has fully spawned.
+ * Event handler for post_inventory_application.
+ * Fires when the player changes class and TF2 resets all attributes.
  */
-public Action Timer_ApplyFootprints(Handle timer, int userid)
+public void Event_PostInventoryApplication_Footprints(Event event, const char[] name, bool dontBroadcast)
 {
-    int client = GetClientOfUserId(userid);
+    int client = GetClientOfUserId(event.GetInt("userid"));
     
-    if (!IsValidPlayer(client) || !IsPlayerAlive(client))
+    if (!IsValidPlayer(client))
     {
-        return Plugin_Stop;
+        return;
     }
     
+    g_LastFootprintApply[client] = 0.0;
     Footprints_ApplySelection(client);
-    return Plugin_Stop;
 }
 
 /**
@@ -337,14 +338,16 @@ void Footprints_ApplySelection(int client)
     // when this is called on player spawn. Ownership is verified when opening
     // the cosmetics menu or when selecting a new cosmetic.
     
-	// Apply the footprint
+	// Apply the footprint. Do not stamp g_LastFootprintApply here - leaving it at 0.0
+	// (set by the spawn event) lets OnPlayerRunCmd re-apply quickly if TF2 wipes the attribute.
 	TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
-	g_LastFootprintApply[client] = GetGameTime();
 }
 
 /**
  * Keeps footprint attributes applied while alive.
- * Some game events on Linux can strip the player attribute shortly after spawn.
+ * Only re-applies if the attribute was actually removed - calling SetByName
+ * unconditionally every second resets the footprint effect's internal state,
+ * causing it to visually fade out and restart repeatedly.
  */
 void Footprints_OnPlayerRunCmd(int client)
 {
@@ -360,13 +363,18 @@ void Footprints_OnPlayerRunCmd(int client)
 	}
 
 	float now = GetGameTime();
-	if ((now - g_LastFootprintApply[client]) < 1.0)
+	if ((now - g_LastFootprintApply[client]) < 0.1)
 	{
 		return;
 	}
 
-	TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
 	g_LastFootprintApply[client] = now;
+
+	// Only re-apply if TF2 has actually stripped the attribute
+	if (TF2Attrib_GetByName(client, "SPELL: set Halloween footstep type") == Address_Null)
+	{
+		TF2Attrib_SetByName(client, "SPELL: set Halloween footstep type", g_FootprintValue[client]);
+	}
 }
 
 /**
