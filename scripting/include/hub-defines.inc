@@ -26,6 +26,11 @@
 #define HUB_PHRASE_CREDITS_RECIEVED_MESSAGE_ENABLED "Hub_Credits_Recieved_Message_Enabled"
 #define HUB_PHRASE_CREDITS_RECIEVED_MESSAGE_DISABLED "Hub_Credits_Recieved_Message_Disabled"
 
+// Daily reward phrases
+#define HUB_PHRASE_DAILY_CLAIMED         "Hub_Daily_Claimed"
+#define HUB_PHRASE_DAILY_CLAIMED_STREAK  "Hub_Daily_Claimed_Streak"
+#define HUB_PHRASE_DAILY_ALREADY_CLAIMED "Hub_Daily_Already_Claimed"
+
 // Math Quiz phrases
 #define HUB_PHRASE_MATHQUIZ_QUESTION  "Hub_MathQuiz_Question"
 #define HUB_PHRASE_MATHQUIZ_WINNER    "Hub_MathQuiz_Winner"

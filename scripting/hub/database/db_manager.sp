@@ -526,4 +526,57 @@ methodmap HubDB
     {
         DB.Execute(txn, onSuccess, onFailure, data);
     }
+    
+    /**
+     * Get a player timer record.
+     * Returns: seconds_ago (INT), claim_count (INT), streak (INT)
+     * 
+     * @param steamId    Player's SteamID
+     * @param timerType  Timer type (e.g. 'daily')
+     * @param callback   Callback function for results
+     * @param data       Optional data to pass to callback
+     */
+    public static void GetPlayerTimer(const char[] steamId, const char[] timerType, SQLQueryCallback callback, any data = 0)
+    {
+        char query[512];
+        char escapedSteamId[64], escapedType[64];
+        DB.Escape(steamId, escapedSteamId, sizeof(escapedSteamId));
+        DB.Escape(timerType, escapedType, sizeof(escapedType));
+        
+        Format(query, sizeof(query),
+            "SELECT TIMESTAMPDIFF(SECOND, `last_claimed`, NOW()) AS seconds_ago, `claim_count`, `streak` FROM `%splayer_timers` WHERE `steamid` = '%s' AND `timer_type` = '%s';",
+            databasePrefix, escapedSteamId, escapedType);
+        
+        DB.Query(callback, query, data);
+    }
+    
+    /**
+     * Insert or update a player timer record.
+     * 
+     * @param steamId    Player's SteamID
+     * @param timerType  Timer type (e.g. 'daily')
+     * @param streak     Current streak value to store
+     * @param callback   Optional callback function
+     * @param data       Optional data to pass to callback
+     */
+    public static void UpsertPlayerTimer(const char[] steamId, const char[] timerType, int streak, SQLQueryCallback callback = INVALID_FUNCTION, any data = 0)
+    {
+        char query[512];
+        char escapedSteamId[64], escapedType[64];
+        DB.Escape(steamId, escapedSteamId, sizeof(escapedSteamId));
+        DB.Escape(timerType, escapedType, sizeof(escapedType));
+        
+        Format(query, sizeof(query),
+            "INSERT INTO `%splayer_timers` (`steamid`, `timer_type`, `last_claimed`, `claim_count`, `streak`) VALUES ('%s', '%s', NOW(), 1, %d) ON DUPLICATE KEY UPDATE `last_claimed` = NOW(), `claim_count` = `claim_count` + 1, `streak` = %d;",
+            databasePrefix, escapedSteamId, escapedType, streak, streak);
+        
+        if (callback != INVALID_FUNCTION)
+        {
+            DB.Query(callback, query, data);
+        }
+        else
+        {
+            DB.Query(ErrorCheckCallback, query);
+        }
+    }
 }

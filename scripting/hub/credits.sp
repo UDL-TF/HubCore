@@ -17,7 +17,9 @@ CreditPlayers creditPlayers[MAXPLAYERS + 1];
 void					CreditsOnStart()
 {
 	RegConsoleCmd("sm_credits", CommandCredits, "Shows clients credits.");
+	RegConsoleCmd("sm_coins", CommandCredits, "Shows clients credits.");
 	RegConsoleCmd("sm_coinflip", CommandCoinflip, "Coinflip.");
+	RegConsoleCmd("sm_daily", CommandDaily, "Claim your daily credit reward.");
 
 	// Create ConVars
 	Hub_Credits_Minute									= CreateConVar("hub_credits_minute", "4", "How minutes when to give credits.");
@@ -26,6 +28,7 @@ void					CreditsOnStart()
 	Hub_Credits_Coinflip_Cooldown				= CreateConVar("hub_credits_coinflip_cooldown", "15", "Cooldown in seconds between coinflip uses.");
 	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "1", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
 	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "2", "How much points to give/extract when death.");
+	Hub_Daily_Base_Credits = CreateConVar("hub_daily_base_credits", "100", "Base credits awarded for the daily reward.");
 
 	HookConVarChange(Hub_Credits_Minute, CreditsMinuteChange);
 	HookEvent("player_death", CreditsOnPlayerDeath);
@@ -268,4 +271,69 @@ public int CoinflipMenuHandler(Menu menu, MenuAction menuActions, int param1, in
 	}
 
 	return 1;
+}
+
+/* Daily reward */
+public Action CommandDaily(int client, int args)
+{
+	if (!IsValidPlayer(client)) return Plugin_Handled;
+
+	char steamId[32];
+	GetSteamId(client, steamId, sizeof(steamId));
+	HubDB.GetPlayerTimer(steamId, "daily", OnDailyTimerLoaded, GetClientUserId(client));
+
+	return Plugin_Handled;
+}
+
+public void OnDailyTimerLoaded(Database db, DBResultSet results, const char[] error, int userId)
+{
+	int client = GetClientOfUserId(userId);
+	if (client == 0) return;
+
+	if (results == null)
+	{
+		LogToFile(logFile, "[Daily] Failed to query timer: %s", error);
+		CPrintToChat(client, "%t", HUB_PHRASE_SOMETHING_WENT_WRONG);
+		return;
+	}
+
+	int streak = 1;
+
+	if (results.FetchRow())
+	{
+		int secondsAgo    = results.FetchInt(0);
+		int currentStreak = results.FetchInt(2);
+
+		// Already claimed in the last 24 hours
+		if (secondsAgo < 86400)
+		{
+			int remaining = 86400 - secondsAgo;
+			int hours     = remaining / 3600;
+			int minutes   = (remaining % 3600) / 60;
+			CPrintToChat(client, "%t", HUB_PHRASE_DAILY_ALREADY_CLAIMED, hours, minutes);
+			return;
+		}
+
+		// Streak continues if claimed within 48 hours, otherwise reset
+		streak = (secondsAgo <= 172800) ? (currentStreak + 1) : 1;
+	}
+
+	int baseCredits = Hub_Daily_Base_Credits.IntValue;
+	int bonus       = (streak - 1) * 5;
+	int total       = baseCredits + bonus;
+
+	Core_AddPlayerCredits(client, total);
+
+	char steamId[32];
+	GetSteamId(client, steamId, sizeof(steamId));
+	HubDB.UpsertPlayerTimer(steamId, "daily", streak);
+
+	char eventData[128];
+	Format(eventData, sizeof(eventData), "{\"credits\":%d,\"streak\":%d,\"bonus\":%d}", total, streak, bonus);
+	Audit_Log(client, AUDIT_DAILY_CLAIMED, eventData, AUDIT_SOURCE_CREDITS);
+
+	if (bonus > 0)
+		CPrintToChat(client, "%t", HUB_PHRASE_DAILY_CLAIMED_STREAK, total, streak, bonus);
+	else
+		CPrintToChat(client, "%t", HUB_PHRASE_DAILY_CLAIMED, total, streak);
 }

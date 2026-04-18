@@ -2,6 +2,7 @@
 #define MENU_PREFERENCES "preferences"
 #define MENU_INVENTORY	 "inventory"
 #define MENU_GAMBLING		 "gambling"
+#define MENU_DAILY				 "daily"
 
 // Menu history system
 #define MAX_MENU_HISTORY 10
@@ -158,6 +159,7 @@ void ShowHubMenu(int client)
 	menu.AddItem(MENU_SHOP, "Hub_Menu_Shop");
 	menu.AddItem(MENU_INVENTORY, "Hub_Menu_Inventory");
 	menu.AddItem(MENU_PREFERENCES, "Hub_Menu_Preferences");
+	menu.AddItem(MENU_DAILY, "Hub_Menu_Daily");
 
 	menu.Display(client, MENU_TIME_FOREVER);
 }
@@ -331,6 +333,11 @@ public int MenuHandlerHub(Menu menu, MenuAction action, int param1, int param2)
 			if (StrEqual(info, MENU_GAMBLING))
 			{
 				ShowGamblingMenu(param1);
+			}
+
+			if (StrEqual(info, MENU_DAILY))
+			{
+				FakeClientCommand(param1, "sm_daily");
 			}
 		}
 		case MenuAction_Cancel:

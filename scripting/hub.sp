@@ -35,6 +35,8 @@ ConVar					Hub_Credits_Coinflip_Cooldown;
 // When a player gets killed we take their points
 ConVar					Hub_Credits_Kill_For_Credits;
 ConVar					Hub_Credits_Kill_For_Credits_Points;
+// Daily reward
+ConVar					Hub_Daily_Base_Credits;
 
 // Shop
 HubCategories		hubCategories[MAX_CATEGORIES];

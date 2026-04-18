@@ -5,7 +5,7 @@
  * Each migration is run sequentially from the current version to the target version.
  */
 
-#define HUB_SCHEMA_VERSION 2  // Current target schema version
+#define HUB_SCHEMA_VERSION 3  // Current target schema version
 
 // Migration state
 bool g_MigrationsComplete = false;
@@ -103,6 +103,7 @@ void Migrations_RunMigrations(int fromVersion, int toVersion)
         {
             case 1: Migration_V1();
             case 2: Migration_V2();
+            case 3: Migration_V3();
             // Add new migrations here as needed
         }
     }
@@ -278,6 +279,33 @@ public void OnMigrationV2DataSuccess(Database db, any data, int numQueries, DBRe
 {
     LogToFile(logFile, "[Migrations] Migration V2 data migration completed successfully.");
     Migrations_SetVersion(2, "Unified schema with JSON columns");
+}
+
+/**
+ * Migration V3: Add streak column to player_timers table
+ */
+void Migration_V3()
+{
+    LogToFile(logFile, "[Migrations] Running Migration V3: Add streak to player_timers...");
+    
+    char query[512];
+    Format(query, sizeof(query),
+        "ALTER TABLE `%splayer_timers` ADD COLUMN IF NOT EXISTS `streak` INT UNSIGNED NOT NULL DEFAULT 1;",
+        databasePrefix);
+    
+    DB.Query(OnMigrationV3Success, query);
+}
+
+public void OnMigrationV3Success(Database db, DBResultSet results, const char[] error, any data)
+{
+    if (results == null)
+    {
+        LogToFile(logFile, "[Migrations] Migration V3 failed: %s", error);
+        SetFailState("[Migrations] Migration V3 failed: %s", error);
+        return;
+    }
+    LogToFile(logFile, "[Migrations] Migration V3 completed successfully.");
+    Migrations_SetVersion(3, "Add streak column to player_timers");
 }
 
 /**
