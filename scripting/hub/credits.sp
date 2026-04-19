@@ -9,7 +9,7 @@ enum struct CreditPlayers
 	Handle	 currentCreditsPerMinute;
 	Coinflip currentCoinflip;
 	int			 currentCoinflipAmount;
-	float		 coinflipLastUsed;
+	int			 coinflipLastUsed;
 }
 
 CreditPlayers creditPlayers[MAXPLAYERS + 1];
@@ -62,6 +62,8 @@ void CreditsOnClientDisconnect(int client)
 	if (!IsValidPlayer(client)) return;
 
 	CloseHandle(creditPlayers[client].currentCreditsPerMinute);
+	creditPlayers[client].coinflipLastUsed			= 0;
+	creditPlayers[client].currentCoinflipAmount = 0;
 }
 
 void CreditsOnClientPostAdminCheck(int client)
@@ -162,12 +164,12 @@ public Action CommandCoinflip(int client, int args)
 		return Plugin_Handled;
 	}
 
-	float cooldown = Hub_Credits_Coinflip_Cooldown.FloatValue;
-	float elapsed	 = GetGameTime() - creditPlayers[client].coinflipLastUsed;
+	int cooldown = Hub_Credits_Coinflip_Cooldown.IntValue;
+	int elapsed	 = GetTime() - creditPlayers[client].coinflipLastUsed;
 
 	if (elapsed < cooldown)
 	{
-		int remaining = RoundToCeil(cooldown - elapsed);
+		int remaining = cooldown - elapsed;
 		CPrintToChat(client, "%t", HUB_PHRASE_CREDITS_COINFLIP_COOLDOWN, remaining);
 		return Plugin_Handled;
 	}
@@ -183,7 +185,7 @@ public Action CommandCoinflip(int client, int args)
 	}
 
 	creditPlayers[client].currentCoinflipAmount = amount;
-	creditPlayers[client].coinflipLastUsed			= GetGameTime();
+	creditPlayers[client].coinflipLastUsed			= GetTime();
 
 	DisplayCoinflipMenu(client);
 
