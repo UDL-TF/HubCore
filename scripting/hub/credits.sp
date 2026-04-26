@@ -1,13 +1,6 @@
-enum Coinflip
-{
-	COINFLIP_HEAD,
-	COINFLIP_TAIL
-}
-
 enum struct CreditPlayers
 {
 	Handle	 currentCreditsPerMinute;
-	Coinflip currentCoinflip;
 	int			 currentCoinflipAmount;
 	float		 coinflipLastUsed;
 }
@@ -26,6 +19,8 @@ void					CreditsOnStart()
 	Hub_Credits_Amount									= CreateConVar("hub_credits_amount", "20", "How many credits to give per minute.");
 	Hub_Credits_Coinflip_Multiplier			= CreateConVar("hub_credits_coinflip_multiplier", "1.1", "How much to multiply the coinflip amount by.");
 	Hub_Credits_Coinflip_Cooldown				= CreateConVar("hub_credits_coinflip_cooldown", "15", "Cooldown in seconds between coinflip uses.");
+	Hub_Credits_Coinflip_Win_Chance			= CreateConVar("hub_credits_coinflip_win_chance", "35", "Win chance percentage for coinflip (1-99).", _, true, 1.0, true, 99.0);
+	Hub_Credits_Coinflip_Max_Bet				= CreateConVar("hub_credits_coinflip_max_bet", "1000", "Maximum amount a player can bet in a single coinflip.", _, true, 1.0);
 	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "1", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
 	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "2", "How much points to give/extract when death.");
 	Hub_Daily_Base_Credits = CreateConVar("hub_daily_base_credits", "100", "Base credits awarded for the daily reward.");
@@ -113,10 +108,11 @@ public void DecideCoinflip(int client)
 
 	char name[MAX_NAME_LENGTH];
 	GetClientName(client, name, sizeof(name));
-	int random = GetRandomInt(0, 1);
+	int winChance = Hub_Credits_Coinflip_Win_Chance.IntValue;
+	int random = GetRandomInt(0, 99);
 	float multiplier = Hub_Credits_Coinflip_Multiplier.FloatValue;
 
-	if (random == view_as<int>(creditPlayers[client].currentCoinflip))
+	if (random < winChance)
 	{
 		int payout = RoundToCeil(amount * multiplier);
 		Core_AddPlayerCredits(client, payout);
@@ -136,8 +132,7 @@ public void DecideCoinflip(int client)
 		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_LOSE, amount, name);
 	}
 
-	creditPlayers[client].currentCoinflip				= view_as<Coinflip>(INVALID_HANDLE);
-	creditPlayers[client].currentCoinflipAmount = view_as<int>(INVALID_HANDLE);
+	creditPlayers[client].currentCoinflipAmount = 0;
 }
 
 /* Commands */
@@ -175,6 +170,14 @@ public Action CommandCoinflip(int client, int args)
 	int currentAmount = Core_GetPlayerCredits(client);
 	int amount				= GetCmdArgInt(1);
 
+	// Can't bet more than the maximum allowed
+	int maxBet = Hub_Credits_Coinflip_Max_Bet.IntValue;
+	if (amount > maxBet)
+	{
+		CPrintToChat(client, "%t", HUB_PHRASE_CREDITS_COINFLIP_MAX_BET, maxBet);
+		return Plugin_Handled;
+	}
+
 	// Can't bet more than you have
 	if (amount > currentAmount)
 	{
@@ -185,7 +188,7 @@ public Action CommandCoinflip(int client, int args)
 	creditPlayers[client].currentCoinflipAmount = amount;
 	creditPlayers[client].coinflipLastUsed			= GetGameTime();
 
-	DisplayCoinflipMenu(client);
+	DecideCoinflip(client);
 
 	return Plugin_Handled;
 }
@@ -226,51 +229,6 @@ public void CreditsOnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBr
 		if (attackerValue != 1)
 			CPrintToChat(attacker, "%t", HUB_PHRASE_EARNED_POINTS_KILLED, transferAmount, clientName);
 	}
-}
-
-/* Menus */
-void DisplayCoinflipMenu(int client)
-{
-	Menu hMenu = new Menu(CoinflipMenuHandler);
-
-	hMenu.SetTitle("Coinflip");
-	hMenu.AddItem("0", "Heads", ITEMDRAW_DEFAULT);
-	hMenu.AddItem("1", "Tails", ITEMDRAW_DEFAULT);
-
-	hMenu.ExitButton = true;
-
-	hMenu.Display(client, MENU_TIME_FOREVER);
-}
-
-public int CoinflipMenuHandler(Menu menu, MenuAction menuActions, int param1, int param2)
-{
-	switch (menuActions)
-	{
-		case MenuAction_Select:
-		{
-			char strOption[8];
-			menu.GetItem(param2, strOption, sizeof(strOption));
-
-			int iOption = StringToInt(strOption);
-
-			switch (iOption)
-			{
-				case 0:
-				{
-					creditPlayers[param1].currentCoinflip = COINFLIP_HEAD;
-					DecideCoinflip(param1);
-				}
-
-				case 1:
-				{
-					creditPlayers[param1].currentCoinflip = COINFLIP_TAIL;
-					DecideCoinflip(param1);
-				}
-			}
-		}
-	}
-
-	return 1;
 }
 
 /* Daily reward */
