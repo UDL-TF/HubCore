@@ -109,10 +109,10 @@ public void DecideCoinflip(int client)
 	char name[MAX_NAME_LENGTH];
 	GetClientName(client, name, sizeof(name));
 	int winChance = Hub_Credits_Coinflip_Win_Chance.IntValue;
-	int random = GetRandomInt(1, 100);
+	int random = GetRandomInt(0, 99);
 	float multiplier = Hub_Credits_Coinflip_Multiplier.FloatValue;
 
-	if (random <= winChance)
+	if (random < winChance)
 	{
 		int payout = RoundToCeil(amount * multiplier);
 		Core_AddPlayerCredits(client, payout);
@@ -132,7 +132,7 @@ public void DecideCoinflip(int client)
 		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_LOSE, amount, name);
 	}
 
-	creditPlayers[client].currentCoinflipAmount = view_as<int>(INVALID_HANDLE);
+	creditPlayers[client].currentCoinflipAmount = 0;
 }
 
 /* Commands */
