@@ -1,13 +1,6 @@
-enum Coinflip
-{
-	COINFLIP_HEAD,
-	COINFLIP_TAIL
-}
-
 enum struct CreditPlayers
 {
 	Handle	 currentCreditsPerMinute;
-	Coinflip currentCoinflip;
 	int			 currentCoinflipAmount;
 	float		 coinflipLastUsed;
 }
@@ -139,7 +132,6 @@ public void DecideCoinflip(int client)
 		CPrintToChatAll("%t", HUB_PHRASE_CREDITS_COINFLIP_LOSE, amount, name);
 	}
 
-	creditPlayers[client].currentCoinflip				= view_as<Coinflip>(INVALID_HANDLE);
 	creditPlayers[client].currentCoinflipAmount = view_as<int>(INVALID_HANDLE);
 }
 
@@ -196,7 +188,7 @@ public Action CommandCoinflip(int client, int args)
 	creditPlayers[client].currentCoinflipAmount = amount;
 	creditPlayers[client].coinflipLastUsed			= GetGameTime();
 
-	DisplayCoinflipMenu(client);
+	DecideCoinflip(client);
 
 	return Plugin_Handled;
 }
@@ -237,51 +229,6 @@ public void CreditsOnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBr
 		if (attackerValue != 1)
 			CPrintToChat(attacker, "%t", HUB_PHRASE_EARNED_POINTS_KILLED, transferAmount, clientName);
 	}
-}
-
-/* Menus */
-void DisplayCoinflipMenu(int client)
-{
-	Menu hMenu = new Menu(CoinflipMenuHandler);
-
-	hMenu.SetTitle("Coinflip");
-	hMenu.AddItem("0", "Heads", ITEMDRAW_DEFAULT);
-	hMenu.AddItem("1", "Tails", ITEMDRAW_DEFAULT);
-
-	hMenu.ExitButton = true;
-
-	hMenu.Display(client, MENU_TIME_FOREVER);
-}
-
-public int CoinflipMenuHandler(Menu menu, MenuAction menuActions, int param1, int param2)
-{
-	switch (menuActions)
-	{
-		case MenuAction_Select:
-		{
-			char strOption[8];
-			menu.GetItem(param2, strOption, sizeof(strOption));
-
-			int iOption = StringToInt(strOption);
-
-			switch (iOption)
-			{
-				case 0:
-				{
-					creditPlayers[param1].currentCoinflip = COINFLIP_HEAD;
-					DecideCoinflip(param1);
-				}
-
-				case 1:
-				{
-					creditPlayers[param1].currentCoinflip = COINFLIP_TAIL;
-					DecideCoinflip(param1);
-				}
-			}
-		}
-	}
-
-	return 1;
 }
 
 /* Daily reward */
