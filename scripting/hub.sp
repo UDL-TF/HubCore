@@ -31,6 +31,8 @@ ConVar					Hub_Credits_Minute;
 ConVar					Hub_Credits_Amount;
 ConVar					Hub_Credits_Coinflip_Multiplier;
 ConVar					Hub_Credits_Coinflip_Cooldown;
+ConVar					Hub_Credits_Coinflip_Win_Chance;
+ConVar					Hub_Credits_Coinflip_Max_Bet;
 // Get credits when you kill someone, either enabled or not.
 // When a player gets killed we take their points
 ConVar					Hub_Credits_Kill_For_Credits;

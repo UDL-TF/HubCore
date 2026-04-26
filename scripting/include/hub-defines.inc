@@ -13,6 +13,7 @@
 
 // Credit phrases
 #define HUB_PHRASE_PLAYER_CREDITS "Hub_Player_Credits"
+#define HUB_PHRASE_CREDITS_COINFLIP_MAX_BET "Hub_Credits_Coinflip_Max_Bet"
 #define HUB_PHRASE_CREDITS_COINFLIP_USAGE "Hub_Credits_Coinflip_Usage"
 #define HUB_PHRASE_CREDITS_COINFLIP_NOT_ENOUGH_CREDITS "Hub_Credits_Coinflip_Not_Enough_Credits"
 #define HUB_PHRASE_CREDITS_COINFLIP_COOLDOWN "Hub_Credits_Coinflip_Cooldown"

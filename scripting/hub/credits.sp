@@ -26,6 +26,8 @@ void					CreditsOnStart()
 	Hub_Credits_Amount									= CreateConVar("hub_credits_amount", "20", "How many credits to give per minute.");
 	Hub_Credits_Coinflip_Multiplier			= CreateConVar("hub_credits_coinflip_multiplier", "1.1", "How much to multiply the coinflip amount by.");
 	Hub_Credits_Coinflip_Cooldown				= CreateConVar("hub_credits_coinflip_cooldown", "15", "Cooldown in seconds between coinflip uses.");
+	Hub_Credits_Coinflip_Win_Chance			= CreateConVar("hub_credits_coinflip_win_chance", "35", "Win chance percentage for coinflip (1-99).", _, true, 1.0, true, 99.0);
+	Hub_Credits_Coinflip_Max_Bet				= CreateConVar("hub_credits_coinflip_max_bet", "1000", "Maximum amount a player can bet in a single coinflip.", _, true, 1.0);
 	Hub_Credits_Kill_For_Credits				= CreateConVar("hub_credits_kill_for_credits", "1", "Get credits when you kill someone, either enabled or not.", _, true, 0.0, true, 1.0);
 	Hub_Credits_Kill_For_Credits_Points = CreateConVar("hub_credits_kill_for_credits_points", "2", "How much points to give/extract when death.");
 	Hub_Daily_Base_Credits = CreateConVar("hub_daily_base_credits", "100", "Base credits awarded for the daily reward.");
@@ -113,10 +115,11 @@ public void DecideCoinflip(int client)
 
 	char name[MAX_NAME_LENGTH];
 	GetClientName(client, name, sizeof(name));
-	int random = GetRandomInt(0, 1);
+	int winChance = Hub_Credits_Coinflip_Win_Chance.IntValue;
+	int random = GetRandomInt(1, 100);
 	float multiplier = Hub_Credits_Coinflip_Multiplier.FloatValue;
 
-	if (random == view_as<int>(creditPlayers[client].currentCoinflip))
+	if (random <= winChance)
 	{
 		int payout = RoundToCeil(amount * multiplier);
 		Core_AddPlayerCredits(client, payout);
@@ -174,6 +177,14 @@ public Action CommandCoinflip(int client, int args)
 
 	int currentAmount = Core_GetPlayerCredits(client);
 	int amount				= GetCmdArgInt(1);
+
+	// Can't bet more than the maximum allowed
+	int maxBet = Hub_Credits_Coinflip_Max_Bet.IntValue;
+	if (amount > maxBet)
+	{
+		CPrintToChat(client, "%t", HUB_PHRASE_CREDITS_COINFLIP_MAX_BET, maxBet);
+		return Plugin_Handled;
+	}
 
 	// Can't bet more than you have
 	if (amount > currentAmount)
